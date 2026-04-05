@@ -24,6 +24,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import de.schaefer.sniffle.ui.detail.DetailScreen
 import de.schaefer.sniffle.ui.history.HistoryScreen
 import de.schaefer.sniffle.ui.scan.LiveScreen
 
@@ -89,7 +90,10 @@ fun SniffleApp() {
             }
             composable("detail/{mac}") { backStackEntry ->
                 val mac = backStackEntry.arguments?.getString("mac") ?: return@composable
-                PlaceholderScreen("Detail: $mac")
+                DetailScreen(
+                    mac = mac,
+                    onBack = { navController.popBackStack() }
+                )
             }
         }
     }
