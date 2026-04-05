@@ -1,0 +1,84 @@
+package de.schaefer.sniffle.background
+
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import de.schaefer.sniffle.App
+import de.schaefer.sniffle.MainActivity
+import de.schaefer.sniffle.R
+import de.schaefer.sniffle.data.DeviceCategory
+import de.schaefer.sniffle.data.DeviceEntity
+
+object NotificationHelper {
+
+    private var nextId = 1000
+
+    fun notifyDevice(context: Context, device: DeviceEntity, values: String?) {
+        val title = when (device.category) {
+            DeviceCategory.SENSOR -> "Neuer Sensor: ${device.model ?: device.name ?: device.mac}"
+            DeviceCategory.DEVICE -> "${device.model ?: device.name ?: device.mac} regelmäßig in der Nähe"
+            DeviceCategory.MYSTERY -> "Unbekanntes Gerät ${device.mac} regelmäßig in der Nähe"
+            DeviceCategory.ONCE -> return // no notification for ONCE
+        }
+
+        val body = when (device.category) {
+            DeviceCategory.SENSOR -> values ?: "${device.brand ?: ""} ${device.model ?: ""}".trim()
+            DeviceCategory.DEVICE -> buildList {
+                device.brand?.let { add(it) }
+                device.company?.let { if (it != device.brand) add(it) }
+                device.appearance?.let { add(it) }
+            }.joinToString(" • ").ifEmpty { device.mac }
+            DeviceCategory.MYSTERY -> "Seit 3+ Tagen gesehen, keine Identität"
+            DeviceCategory.ONCE -> return
+        }
+
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        val pending = PendingIntent.getActivity(
+            context, nextId, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(context, App.CHANNEL_DEVICES)
+            .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .setContentIntent(pending)
+            .build()
+
+        try {
+            NotificationManagerCompat.from(context).notify(nextId++, notification)
+        } catch (_: SecurityException) {
+            // POST_NOTIFICATIONS not granted
+        }
+    }
+
+    fun notifyScanSummary(context: Context, total: Int, sensors: Int, newCount: Int) {
+        val notification = NotificationCompat.Builder(context, App.CHANNEL_SUMMARY)
+            .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
+            .setContentTitle("Scan abgeschlossen")
+            .setContentText("$total Geräte, $sensors Sensoren, $newCount neu")
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setAutoCancel(true)
+            .build()
+
+        try {
+            NotificationManagerCompat.from(context).notify(999, notification)
+        } catch (_: SecurityException) {}
+    }
+
+    fun serviceNotification(context: Context): android.app.Notification {
+        return NotificationCompat.Builder(context, App.CHANNEL_SERVICE)
+            .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
+            .setContentTitle("Sniffle")
+            .setContentText("Scanne nach Geräten…")
+            .setPriority(NotificationCompat.PRIORITY_MIN)
+            .setOngoing(true)
+            .build()
+    }
+}
