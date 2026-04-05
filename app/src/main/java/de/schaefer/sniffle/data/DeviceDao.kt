@@ -50,4 +50,17 @@ interface DeviceDao {
         AND latestSeenDate < :cutoffDate
     """)
     suspend fun deleteStaleOnce(cutoffDate: String)
+
+    /** Latest sighting with GPS for each device (for map). */
+    @Query("""
+        SELECT s.* FROM sightings s
+        INNER JOIN (
+            SELECT mac, MAX(timestamp) as maxTs
+            FROM sightings
+            WHERE latitude IS NOT NULL
+            GROUP BY mac
+        ) latest ON s.mac = latest.mac AND s.timestamp = latest.maxTs
+        WHERE s.latitude IS NOT NULL
+    """)
+    fun observeLatestGeoSightings(): Flow<List<SightingEntity>>
 }
