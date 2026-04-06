@@ -94,18 +94,11 @@ fun SniffleApp() {
                 )
             }
             composable(Tab.History.route) {
-                val liveStatus = buildList {
-                    if (liveState.bleActive) add("BLE: ${liveState.bleCount}")
-                    if (liveState.classicActive) add("BT: ${liveState.classicCount}")
-                    add("${liveState.totalCount} live")
-                }.joinToString("  •  ")
-
                 HistoryScreen(
                     onDeviceTap = { mac -> navController.navigate("detail/$mac") },
                     liveMacs = liveState.allMacs,
                     liveRssi = liveState.rssiMap,
                     liveValues = liveState.valuesMap,
-                    statusLine = liveStatus,
                 )
             }
             composable(Tab.Map.route) {
