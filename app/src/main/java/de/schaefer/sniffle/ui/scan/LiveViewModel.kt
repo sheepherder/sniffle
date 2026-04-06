@@ -2,7 +2,6 @@ package de.schaefer.sniffle.ui.scan
 
 import android.annotation.SuppressLint
 import android.app.Application
-import android.content.Context
 import android.os.Looper
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -20,6 +19,7 @@ import de.schaefer.sniffle.classify.OuiLookup
 import de.schaefer.sniffle.data.DeviceCategory
 import de.schaefer.sniffle.data.DeviceEntity
 import de.schaefer.sniffle.data.Transport
+import de.schaefer.sniffle.util.Preferences
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -44,7 +44,7 @@ data class LiveState(
 
 class LiveViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val prefs = application.getSharedPreferences("sniffle_settings", Context.MODE_PRIVATE)
+    private val prefs = Preferences(application)
     private val dao = (application as App).database.deviceDao()
     private val bleScanner = BleScanner(application)
     private val classicScanner = ClassicScanner(application)
@@ -73,8 +73,8 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Re-read settings and restart/stop scans accordingly. */
     fun restartScans() {
-        val bleEnabled = prefs.getBoolean("ble_scan", true)
-        val classicEnabled = prefs.getBoolean("classic_scan", true)
+        val bleEnabled = prefs.bleScan
+        val classicEnabled = prefs.classicScan
 
         // BLE
         if (bleEnabled && bleScanner.isAvailable && bleJob == null) {

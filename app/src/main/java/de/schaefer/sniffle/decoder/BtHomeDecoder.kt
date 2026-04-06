@@ -1,8 +1,7 @@
 package de.schaefer.sniffle.decoder
 
 import de.schaefer.sniffle.ble.ParsedAdvert
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
+import de.schaefer.sniffle.util.readValueLE
 
 /**
  * BTHome v1/v2 decoder.
@@ -41,7 +40,7 @@ object BtHomeDecoder : Decoder {
 
             if (offset + def.len > payload.size) break
 
-            val raw = readValue(payload, offset, def.len, def.signed)
+            val raw = payload.readValueLE(offset, def.len, def.signed)
             offset += def.len
 
             val value: Any = if (def.factor != 1.0) {
@@ -73,22 +72,6 @@ object BtHomeDecoder : Decoder {
         "energy", "weight", "distance", "count",
     )
 
-    private fun readValue(data: ByteArray, offset: Int, len: Int, signed: Boolean): Double {
-        val buf = ByteBuffer.wrap(data, offset, len).order(ByteOrder.LITTLE_ENDIAN)
-        return when (len) {
-            1 -> if (signed) data[offset].toDouble() else (data[offset].toInt() and 0xFF).toDouble()
-            2 -> if (signed) buf.getShort().toDouble() else (buf.getShort().toInt() and 0xFFFF).toDouble()
-            3 -> {
-                val lo = data[offset].toInt() and 0xFF
-                val mid = data[offset + 1].toInt() and 0xFF
-                val hi = data[offset + 2].toInt() and 0xFF
-                val raw = lo or (mid shl 8) or (hi shl 16)
-                if (signed && raw > 0x7FFFFF) (raw - 0x1000000).toDouble() else raw.toDouble()
-            }
-            4 -> if (signed) buf.getInt().toDouble() else (buf.getInt().toLong() and 0xFFFFFFFFL).toDouble()
-            else -> 0.0
-        }
-    }
 
     private data class ObjDef(val name: String, val len: Int, val factor: Double = 1.0, val signed: Boolean = false)
 

@@ -19,9 +19,7 @@ import androidx.compose.ui.unit.sp
 import de.schaefer.sniffle.data.DeviceCategory
 import de.schaefer.sniffle.data.DeviceEntity
 import de.schaefer.sniffle.data.Transport
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import de.schaefer.sniffle.util.formatTimestamp
 import kotlin.math.max
 import kotlin.math.min
 
@@ -306,9 +304,3 @@ fun buildOnceSummary(devices: List<DeviceEntity>): String {
         .joinToString(" • ") { "${it.value}× ${it.key}" }
 }
 
-private val timeFormat = SimpleDateFormat("dd.MM. HH:mm:ss", Locale.GERMAN)
-
-fun formatTimestamp(ms: Long): String {
-    if (ms == 0L) return "?"
-    return timeFormat.format(Date(ms))
-}

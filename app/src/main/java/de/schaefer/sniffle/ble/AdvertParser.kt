@@ -2,9 +2,7 @@ package de.schaefer.sniffle.ble
 
 import android.bluetooth.le.ScanRecord
 import android.bluetooth.le.ScanResult
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
+import de.schaefer.sniffle.util.toHex
 
 /**
  * Parsed BLE advertisement data, ready for decoder chain.
@@ -14,11 +12,10 @@ data class ParsedAdvert(
     val name: String?,
     val rssi: Int,
     val txPower: Int?,
-    val manufacturerData: Map<Int, ByteArray>,   // company ID → payload
-    val serviceData: Map<String, ByteArray>,      // UUID string → payload
+    val manufacturerData: Map<Int, ByteArray>,
+    val serviceData: Map<String, ByteArray>,
     val serviceUuids: List<String>,
     val appearance: Int?,
-    val theengsJson: String,                      // JSON for TheengsDecoder
 )
 
 object AdvertParser {
@@ -46,54 +43,9 @@ object AdvertParser {
         val svcUuids = record?.serviceUuids?.map { it.toString() } ?: emptyList()
         val appearance = parseAppearance(record)
 
-        val theengsJson = buildTheengsJson(name, mfgData, svcData)
-
-        return ParsedAdvert(
-            mac = mac,
-            name = name,
-            rssi = rssi,
-            txPower = txPower,
-            manufacturerData = mfgData,
-            serviceData = svcData,
-            serviceUuids = svcUuids,
-            appearance = appearance,
-            theengsJson = theengsJson,
-        )
+        return ParsedAdvert(mac, name, rssi, txPower, mfgData, svcData, svcUuids, appearance)
     }
 
-    /**
-     * Build JSON string for TheengsDecoder.
-     * Format: {"name":"...", "manufacturerdata":"hex...", "servicedata":"hex...", "servicedatauuid":"..."}
-     */
-    private fun buildTheengsJson(
-        name: String?,
-        mfgData: Map<Int, ByteArray>,
-        svcData: Map<String, ByteArray>,
-    ): String {
-        return buildJsonObject {
-            if (!name.isNullOrEmpty()) put("name", name)
-
-            if (mfgData.isNotEmpty()) {
-                val hex = mfgData.entries.joinToString("") { (cid, payload) ->
-                    // Company ID as 2-byte little-endian hex + payload hex
-                    val lo = cid and 0xFF
-                    val hi = (cid shr 8) and 0xFF
-                    "%02x%02x".format(lo, hi) + payload.toHex()
-                }
-                put("manufacturerdata", hex)
-            }
-
-            if (svcData.isNotEmpty()) {
-                val (uuid, payload) = svcData.entries.first()
-                put("servicedata", payload.toHex())
-                put("servicedatauuid", uuid)
-            }
-        }.toString()
-    }
-
-    /**
-     * Parse BLE Appearance from raw advertisement bytes (AD Type 0x19).
-     */
     private fun parseAppearance(record: ScanRecord?): Int? {
         val bytes = record?.bytes ?: return null
         var i = 0
@@ -112,5 +64,3 @@ object AdvertParser {
         return null
     }
 }
-
-fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }

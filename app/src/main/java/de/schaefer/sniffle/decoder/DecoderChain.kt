@@ -2,28 +2,28 @@ package de.schaefer.sniffle.decoder
 
 import de.schaefer.sniffle.ble.ParsedAdvert
 import de.schaefer.sniffle.ble.TheengsDecoder
+import de.schaefer.sniffle.util.toHex
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 
-/**
- * Result of decoding a BLE advertisement.
- */
 data class DecodedDevice(
     val brand: String,
     val model: String,
     val modelId: String,
-    val type: String,                         // THB, RMAC, BBQ, PLANT, etc.
-    val values: Map<String, Any>,             // sensor values: "tempc" -> 23.4
-    val hasSensorData: Boolean,               // true if has temp/hum/co2/etc.
+    val type: String,
+    val values: Map<String, Any>,
+    val hasSensorData: Boolean,
 )
 
-private val SENSOR_TYPES = setOf("THB", "TH", "BBQ", "PLANT", "SCALE", "AIR", "ENRG", "BODY", "ACEL")
+val SENSOR_TYPES = setOf("THB", "TH", "BBQ", "PLANT", "SCALE", "AIR", "ENRG", "BODY", "ACEL")
 
-/**
- * Tries all decoders in order. First match wins.
- */
+interface Decoder {
+    fun decode(advert: ParsedAdvert): DecodedDevice?
+}
+
 object DecoderChain {
 
     private val decoders: List<Decoder> = listOf(
@@ -43,12 +43,8 @@ object DecoderChain {
     }
 }
 
-interface Decoder {
-    fun decode(advert: ParsedAdvert): DecodedDevice?
-}
-
 /**
- * Adapter that wraps TheengsDecoder C++/JNI calls.
+ * Wraps TheengsDecoder C++/JNI. Builds the Theengs-specific JSON from ParsedAdvert.
  */
 object TheengsDecoderAdapter : Decoder {
     private val json = Json { ignoreUnknownKeys = true }
@@ -60,8 +56,9 @@ object TheengsDecoderAdapter : Decoder {
     )
 
     override fun decode(advert: ParsedAdvert): DecodedDevice? {
-        if (advert.theengsJson.length < 3) return null
-        val resultJson = TheengsDecoder.decodeBLE(advert.theengsJson) ?: return null
+        val input = buildTheengsJson(advert)
+        if (input.length < 3) return null
+        val resultJson = TheengsDecoder.decodeBLE(input) ?: return null
         if (resultJson.isEmpty()) return null
 
         return try {
@@ -84,19 +81,26 @@ object TheengsDecoderAdapter : Decoder {
                 }
             }
 
-            // Remove tempf if tempc exists
             if ("tempc" in values) values.remove("tempf")
 
-            DecodedDevice(
-                brand = brand,
-                model = model,
-                modelId = modelId,
-                type = type,
-                values = values,
-                hasSensorData = type in SENSOR_TYPES,
-            )
+            DecodedDevice(brand, model, modelId, type, values, type in SENSOR_TYPES)
         } catch (_: Exception) {
             null
         }
     }
+
+    private fun buildTheengsJson(advert: ParsedAdvert): String = buildJsonObject {
+        if (!advert.name.isNullOrEmpty()) put("name", advert.name)
+        if (advert.manufacturerData.isNotEmpty()) {
+            val hex = advert.manufacturerData.entries.joinToString("") { (cid, payload) ->
+                "%02x%02x".format(cid and 0xFF, (cid shr 8) and 0xFF) + payload.toHex()
+            }
+            put("manufacturerdata", hex)
+        }
+        if (advert.serviceData.isNotEmpty()) {
+            val (uuid, payload) = advert.serviceData.entries.first()
+            put("servicedata", payload.toHex())
+            put("servicedatauuid", uuid)
+        }
+    }.toString()
 }

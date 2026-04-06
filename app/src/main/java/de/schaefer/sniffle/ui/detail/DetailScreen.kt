@@ -28,8 +28,8 @@ import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
-import java.text.SimpleDateFormat
-import java.util.*
+import de.schaefer.sniffle.util.formatTimestamp
+import de.schaefer.sniffle.util.formatTimestampLong
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -232,7 +232,6 @@ private fun SensorChart(sightings: List<SightingEntity>) {
         Spacer(Modifier.height(8.dp))
 
         // Simple text-based chart for now — Vico integration in a later pass
-        val dateFormat = SimpleDateFormat("dd.MM. HH:mm:ss", Locale.GERMAN)
         val recentSightings = sightings.take(20).reversed()
 
         for (key in firstValues.keys.take(4)) {
@@ -245,7 +244,7 @@ private fun SensorChart(sightings: List<SightingEntity>) {
             for (s in recentSightings) {
                 val vals = parseValues(s.decodedValues)
                 val v = vals[key] ?: continue
-                val time = dateFormat.format(Date(s.timestamp))
+                val time = formatTimestamp(s.timestamp)
                 Text(
                     "$time  $v",
                     style = MaterialTheme.typography.bodySmall,
@@ -258,8 +257,7 @@ private fun SensorChart(sightings: List<SightingEntity>) {
 
 @Composable
 private fun SightingRow(sighting: SightingEntity) {
-    val dateFormat = remember { SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMAN) }
-    val time = dateFormat.format(Date(sighting.timestamp))
+    val time = formatTimestampLong(sighting.timestamp)
     val values = parseValues(sighting.decodedValues)
 
     Row(

@@ -36,11 +36,11 @@ class ScanWorker(
 
     @SuppressLint("MissingPermission")
     override suspend fun doWork(): Result {
-        val prefs = applicationContext.getSharedPreferences("sniffle_settings", Context.MODE_PRIVATE)
-        val durationMs = prefs.getLong("scan_duration_ms", 60_000L)
-        val bleScan = prefs.getBoolean("ble_scan", true)
-        val classicScan = prefs.getBoolean("classic_scan", true)
-        val showSummary = prefs.getBoolean("scan_summary", false)
+        val prefs = de.schaefer.sniffle.util.Preferences(applicationContext)
+        val durationMs = prefs.scanDurationMs
+        val bleScan = prefs.bleScan
+        val classicScan = prefs.classicScan
+        val showSummary = prefs.scanSummary
 
         // Show foreground notification
         setForeground(ForegroundInfo(1, NotificationHelper.serviceNotification(applicationContext)))

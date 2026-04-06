@@ -12,7 +12,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
-import androidx.core.content.edit
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 
@@ -121,8 +120,7 @@ fun OnboardingScreen(onComplete: () -> Unit) {
             }
 
             else -> {
-                context.getSharedPreferences("sniffle_settings", Context.MODE_PRIVATE)
-                    .edit { putBoolean("onboarding_done", true) }
+                de.schaefer.sniffle.util.Preferences(context).onboardingDone = true
                 onComplete()
             }
         }
@@ -130,8 +128,7 @@ fun OnboardingScreen(onComplete: () -> Unit) {
 }
 
 fun needsOnboarding(context: Context): Boolean {
-    val prefs = context.getSharedPreferences("sniffle_settings", Context.MODE_PRIVATE)
-    if (prefs.getBoolean("onboarding_done", false)) return false
+    if (de.schaefer.sniffle.util.Preferences(context).onboardingDone) return false
     return ContextCompat.checkSelfPermission(
         context, Manifest.permission.BLUETOOTH_SCAN
     ) != PackageManager.PERMISSION_GRANTED
