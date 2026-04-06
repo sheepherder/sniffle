@@ -143,8 +143,12 @@ class ScanService : Service() {
         val existing = dao.getDevice(advert.mac)
         val isNew = existing == null
 
-        val category = existing?.category
-            ?: DeviceClassifier.classifyBle(advert, decoded)
+        val freshCategory = DeviceClassifier.classifyBle(advert, decoded)
+        val category = when {
+            existing == null -> freshCategory
+            existing.category == DeviceCategory.ONCE && freshCategory == DeviceCategory.SENSOR -> DeviceCategory.SENSOR
+            else -> existing.category
+        }
 
         val ouiVendor = OuiLookup.lookup(advert.mac)
         val company = DeviceClassifier.companyFromId(advert.manufacturerData) ?: ouiVendor

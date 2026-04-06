@@ -53,6 +53,8 @@ object DeviceClassifier {
      * Initial category for a newly discovered BLE device.
      */
     fun classifyBle(advert: ParsedAdvert, decoded: DecodedDevice?): DeviceCategory {
+        // Boring devices (Apple, MS-CDP) are always ONCE, even if decoded
+        if (isBoring(decoded)) return DeviceCategory.ONCE
         if (decoded?.hasSensorData == true) return DeviceCategory.SENSOR
         return DeviceCategory.ONCE
     }

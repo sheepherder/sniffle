@@ -97,10 +97,14 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
         val serviceHints = ServiceUuidResolver.resolve(advert.serviceUuids)
         val guessedType = DeviceClassifier.guessTypeFromName(advert.name)
 
-        // Determine or load category
+        // Determine or load category — re-classify ONCE→SENSOR if new decode has sensor data
         val existing = db.getDevice(advert.mac)
-        val category = existing?.category
-            ?: DeviceClassifier.classifyBle(advert, decoded)
+        val freshCategory = DeviceClassifier.classifyBle(advert, decoded)
+        val category = when {
+            existing == null -> freshCategory
+            existing.category == DeviceCategory.ONCE && freshCategory == DeviceCategory.SENSOR -> DeviceCategory.SENSOR
+            else -> existing.category
+        }
 
         val today = LocalDate.now().toString()
         val firstSeen = existing?.firstSeenDate ?: today
