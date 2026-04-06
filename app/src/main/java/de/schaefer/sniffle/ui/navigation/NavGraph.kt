@@ -107,7 +107,7 @@ fun SniffleApp() {
                 )
             }
             composable(Tab.Settings.route) {
-                SettingsScreen()
+                SettingsScreen(onScanSettingsChanged = { liveViewModel.restartScans() })
             }
             composable("detail/{mac}") { backStackEntry ->
                 val mac = backStackEntry.arguments?.getString("mac") ?: return@composable

@@ -2,6 +2,7 @@ package de.schaefer.sniffle.ui.scan
 
 import android.annotation.SuppressLint
 import android.app.Application
+import android.content.Context
 import android.os.Looper
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -18,6 +19,7 @@ import de.schaefer.sniffle.ble.ScanProcessor
 import de.schaefer.sniffle.classify.OuiLookup
 import de.schaefer.sniffle.data.DeviceCategory
 import de.schaefer.sniffle.data.DeviceEntity
+import de.schaefer.sniffle.data.Transport
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,10 +36,15 @@ data class LiveState(
     val allMacs: Set<String> = emptySet(),
     val rssiMap: Map<String, Int> = emptyMap(),
     val valuesMap: Map<String, Map<String, Any>> = emptyMap(),
+    val bleActive: Boolean = true,
+    val classicActive: Boolean = true,
+    val bleCount: Int = 0,
+    val classicCount: Int = 0,
 )
 
 class LiveViewModel(application: Application) : AndroidViewModel(application) {
 
+    private val prefs = application.getSharedPreferences("sniffle_settings", Context.MODE_PRIVATE)
     private val dao = (application as App).database.deviceDao()
     private val bleScanner = BleScanner(application)
     private val classicScanner = ClassicScanner(application)
@@ -51,6 +58,8 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
     private val lastSeenAt = mutableMapOf<String, Long>()
     private var refreshJob: Job? = null
     private var locationCallback: LocationCallback? = null
+    private var bleJob: Job? = null
+    private var classicJob: Job? = null
 
     init {
         OuiLookup.init(application)
@@ -59,9 +68,17 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
     @SuppressLint("MissingPermission")
     fun startScanning() {
         startLocationUpdates()
+        restartScans()
+    }
 
-        if (bleScanner.isAvailable) {
-            viewModelScope.launch {
+    /** Re-read settings and restart/stop scans accordingly. */
+    fun restartScans() {
+        val bleEnabled = prefs.getBoolean("ble_scan", true)
+        val classicEnabled = prefs.getBoolean("classic_scan", true)
+
+        // BLE
+        if (bleEnabled && bleScanner.isAvailable && bleJob == null) {
+            bleJob = viewModelScope.launch {
                 bleScanner.scan().collect { advert ->
                     val result = processor.processBle(advert)
                     liveDevices[result.mac] = result
@@ -69,9 +86,14 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
                     scheduleRefresh()
                 }
             }
+        } else if (!bleEnabled && bleJob != null) {
+            bleJob?.cancel()
+            bleJob = null
         }
-        if (classicScanner.isAvailable) {
-            viewModelScope.launch {
+
+        // Classic BT
+        if (classicEnabled && classicScanner.isAvailable && classicJob == null) {
+            classicJob = viewModelScope.launch {
                 classicScanner.scan().collect { device ->
                     val result = processor.processClassic(device)
                     liveDevices[result.mac] = result
@@ -79,7 +101,15 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
                     scheduleRefresh()
                 }
             }
+        } else if (!classicEnabled && classicJob != null) {
+            classicJob?.cancel()
+            classicJob = null
         }
+
+        _state.value = _state.value.copy(
+            bleActive = bleEnabled && bleScanner.isAvailable,
+            classicActive = classicEnabled && classicScanner.isAvailable,
+        )
     }
 
     fun toggleOnceExpanded() {
@@ -133,6 +163,8 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
                 allMacs = liveDevices.keys.toSet(),
                 rssiMap = rssiMap,
                 valuesMap = valuesMap,
+                bleCount = all.count { it.transport == Transport.BLE },
+                classicCount = all.count { it.transport == Transport.CLASSIC },
             )
         }
     }

@@ -30,7 +30,7 @@ private val DURATIONS = listOf(
 )
 
 @Composable
-fun SettingsScreen() {
+fun SettingsScreen(onScanSettingsChanged: () -> Unit = {}) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("sniffle_settings", Context.MODE_PRIVATE) }
 
@@ -83,10 +83,12 @@ fun SettingsScreen() {
         SettingSwitch("BLE-Scan", bleScan) {
             bleScan = it
             prefs.edit { putBoolean("ble_scan", it) }
+            onScanSettingsChanged()
         }
         SettingSwitch("Classic Bluetooth", classicScan) {
             classicScan = it
             prefs.edit { putBoolean("classic_scan", it) }
+            onScanSettingsChanged()
         }
 
         Spacer(Modifier.height(24.dp))

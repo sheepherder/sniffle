@@ -1,8 +1,9 @@
 package de.schaefer.sniffle.ui.scan
 
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -25,6 +26,21 @@ fun LiveScreen(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 16.dp)
     ) {
+        // Status bar
+        item {
+            val parts = buildList {
+                if (state.bleActive) add("BLE: ${state.bleCount}")
+                if (state.classicActive) add("BT: ${state.classicCount}")
+                if (!state.bleActive && !state.classicActive) add("Scan deaktiviert")
+            }
+            Text(
+                parts.joinToString("  •  ") + "  •  ${state.totalCount} gesamt",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 4.dp),
+            )
+        }
+
         deviceListContent(
             sensors = state.sensors,
             devices = state.devices,
