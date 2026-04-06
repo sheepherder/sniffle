@@ -16,9 +16,13 @@ fun HistoryScreen(
     liveMacs: Set<String> = emptySet(),
     liveRssi: Map<String, Int> = emptyMap(),
     liveValues: Map<String, Map<String, Any>> = emptyMap(),
+    statusLine: String? = null,
     viewModel: HistoryViewModel = viewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle(HistoryState())
+
+    val total = state.sensors.size + state.devices.size + state.mystery.size + state.once.size
+    val status = statusLine ?: "${total} Geräte gespeichert"
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -37,6 +41,7 @@ fun HistoryScreen(
             onToggleOnce = viewModel::toggleOnceExpanded,
             onDeviceTap = onDeviceTap,
             emptyText = "Noch keine Funde",
+            statusLine = status,
         )
     }
 }

@@ -59,7 +59,19 @@ fun LazyListScope.deviceListContent(
     onToggleOnce: () -> Unit,
     onDeviceTap: (String) -> Unit,
     emptyText: String,
+    statusLine: String? = null,
 ) {
+    if (statusLine != null) {
+        item(key = "status") {
+            Text(
+                statusLine,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 4.dp),
+            )
+        }
+    }
+
     for (category in listOf(DeviceCategory.SENSOR, DeviceCategory.DEVICE, DeviceCategory.MYSTERY)) {
         val list = when (category) {
             DeviceCategory.SENSOR -> sensors

@@ -232,7 +232,7 @@ private fun SensorChart(sightings: List<SightingEntity>) {
         Spacer(Modifier.height(8.dp))
 
         // Simple text-based chart for now — Vico integration in a later pass
-        val dateFormat = SimpleDateFormat("dd.MM HH:mm", Locale.GERMAN)
+        val dateFormat = SimpleDateFormat("dd.MM. HH:mm:ss", Locale.GERMAN)
         val recentSightings = sightings.take(20).reversed()
 
         for (key in firstValues.keys.take(4)) {
@@ -258,7 +258,7 @@ private fun SensorChart(sightings: List<SightingEntity>) {
 
 @Composable
 private fun SightingRow(sighting: SightingEntity) {
-    val dateFormat = remember { SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.GERMAN) }
+    val dateFormat = remember { SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMAN) }
     val time = dateFormat.format(Date(sighting.timestamp))
     val values = parseValues(sighting.decodedValues)
 
