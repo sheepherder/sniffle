@@ -1,8 +1,15 @@
 package de.schaefer.sniffle.ui.scan
 
+import android.annotation.SuppressLint
 import android.app.Application
+import android.os.Looper
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import de.schaefer.sniffle.App
 import de.schaefer.sniffle.ble.BleScanner
 import de.schaefer.sniffle.ble.ClassicScanner
@@ -35,6 +42,7 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
     private val bleScanner = BleScanner(application)
     private val classicScanner = ClassicScanner(application)
     private val processor = ScanProcessor(dao)
+    private val locationClient = LocationServices.getFusedLocationProviderClient(application)
 
     private val _state = MutableStateFlow(LiveState())
     val state: StateFlow<LiveState> = _state
@@ -42,12 +50,16 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
     private val liveDevices = mutableMapOf<String, ProcessedDevice>()
     private val lastSeenAt = mutableMapOf<String, Long>()
     private var refreshJob: Job? = null
+    private var locationCallback: LocationCallback? = null
 
     init {
         OuiLookup.init(application)
     }
 
+    @SuppressLint("MissingPermission")
     fun startScanning() {
+        startLocationUpdates()
+
         if (bleScanner.isAvailable) {
             viewModelScope.launch {
                 bleScanner.scan().collect { advert ->
@@ -72,6 +84,31 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
 
     fun toggleOnceExpanded() {
         _state.value = _state.value.copy(onceExpanded = !_state.value.onceExpanded)
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun startLocationUpdates() {
+        if (locationCallback != null) return
+        val request = LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 30_000)
+            .setMinUpdateIntervalMillis(10_000)
+            .build()
+        val callback = object : LocationCallback() {
+            override fun onLocationResult(result: LocationResult) {
+                result.lastLocation?.let { loc ->
+                    processor.latitude = loc.latitude
+                    processor.longitude = loc.longitude
+                }
+            }
+        }
+        locationCallback = callback
+        try {
+            locationClient.requestLocationUpdates(request, callback, Looper.getMainLooper())
+        } catch (_: Exception) {}
+    }
+
+    override fun onCleared() {
+        locationCallback?.let { locationClient.removeLocationUpdates(it) }
+        super.onCleared()
     }
 
     private fun scheduleRefresh() {

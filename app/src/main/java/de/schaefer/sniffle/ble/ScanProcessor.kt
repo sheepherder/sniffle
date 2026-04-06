@@ -37,8 +37,8 @@ data class ProcessedDevice(
  */
 class ScanProcessor(
     private val dao: DeviceDao,
-    private val latitude: Double? = null,
-    private val longitude: Double? = null,
+    @Volatile var latitude: Double? = null,
+    @Volatile var longitude: Double? = null,
 ) {
     val newDeviceCount = AtomicInteger()
     val sensorCount = AtomicInteger()
