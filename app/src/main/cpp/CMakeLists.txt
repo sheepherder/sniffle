@@ -26,3 +26,6 @@ target_include_directories(sniffle PRIVATE
 
 target_link_libraries(sniffle PRIVATE decoder android log)
 target_compile_features(sniffle PRIVATE cxx_std_11)
+
+# 16KB page size alignment (required for Android 15+ / Pixel)
+target_link_options(sniffle PRIVATE "-Wl,-z,max-page-size=16384")
