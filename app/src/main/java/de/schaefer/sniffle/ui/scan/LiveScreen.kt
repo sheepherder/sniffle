@@ -1,6 +1,5 @@
 package de.schaefer.sniffle.ui.scan
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import de.schaefer.sniffle.ble.ProcessedDevice
 import de.schaefer.sniffle.data.DeviceCategory
 import de.schaefer.sniffle.data.Transport
 import kotlin.math.max
@@ -151,7 +151,7 @@ private fun CollapsibleHeader(
 }
 
 @Composable
-fun DeviceRow(device: LiveDevice, onTap: (String) -> Unit) {
+fun DeviceRow(device: ProcessedDevice, onTap: (String) -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -230,7 +230,7 @@ private fun RssiBar(rssi: Int) {
     )
 }
 
-private fun buildOnceSummary(devices: List<LiveDevice>): String {
+private fun buildOnceSummary(devices: List<ProcessedDevice>): String {
     val groups = mutableMapOf<String, Int>()
     for (d in devices) {
         val label = when {

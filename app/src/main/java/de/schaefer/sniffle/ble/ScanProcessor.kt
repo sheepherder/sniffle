@@ -1,6 +1,5 @@
 package de.schaefer.sniffle.ble
 
-import android.content.Context
 import de.schaefer.sniffle.classify.AppearanceResolver
 import de.schaefer.sniffle.classify.DeviceClassifier
 import de.schaefer.sniffle.classify.OuiLookup
@@ -10,16 +9,12 @@ import de.schaefer.sniffle.data.DeviceDao
 import de.schaefer.sniffle.data.DeviceEntity
 import de.schaefer.sniffle.data.SightingEntity
 import de.schaefer.sniffle.data.Transport
-import de.schaefer.sniffle.decoder.DecodedDevice
 import de.schaefer.sniffle.decoder.DecoderChain
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.time.LocalDate
+import java.util.concurrent.atomic.AtomicInteger
 
-/**
- * Result of processing a single scan result.
- * Used by LiveViewModel for UI state, ignored by ScanService.
- */
 data class ProcessedDevice(
     val mac: String,
     val name: String?,
@@ -28,28 +23,30 @@ data class ProcessedDevice(
     val brand: String?,
     val model: String?,
     val type: String?,
-    val values: Map<String, Any>,
+    val values: Map<String, Any> = emptyMap(),
     val company: String?,
     val appearance: String?,
-    val serviceHints: List<String>,
-    val transport: Transport,
-    val guessedType: String?,
-    val wasPromoted: Boolean,
-    val entity: DeviceEntity,
+    val serviceHints: List<String> = emptyList(),
+    val transport: Transport = Transport.BLE,
+    val guessedType: String? = null,
+    val wasPromoted: Boolean = false,
 )
 
 /**
  * Shared scan processing pipeline used by both LiveViewModel and ScanService.
- * Handles: decode → classify → persist → promote → notify.
  */
 class ScanProcessor(
     private val dao: DeviceDao,
     private val latitude: Double? = null,
     private val longitude: Double? = null,
 ) {
-    var newDeviceCount = 0; private set
-    var sensorCount = 0; private set
-    var totalCount = 0; private set
+    val newDeviceCount = AtomicInteger()
+    val sensorCount = AtomicInteger()
+    val totalCount = AtomicInteger()
+
+    // Caches — valid for one scan session, avoid repeated DB reads
+    private val deviceCache = mutableMapOf<String, DeviceEntity?>()
+    private val distinctDaysCache = mutableMapOf<String, Int>()
 
     suspend fun processBle(advert: ParsedAdvert): ProcessedDevice {
         val decoded = DecoderChain.decode(advert)
@@ -59,7 +56,7 @@ class ScanProcessor(
         val serviceHints = ServiceUuidResolver.resolve(advert.serviceUuids)
         val guessedType = DeviceClassifier.guessTypeFromName(advert.name)
 
-        val existing = dao.getDevice(advert.mac)
+        val existing = cachedGetDevice(advert.mac)
         val category = resolveCategory(existing?.category, advert, decoded)
         val today = LocalDate.now().toString()
 
@@ -82,51 +79,30 @@ class ScanProcessor(
         dao.upsertDevice(entity)
         persistSighting(advert.mac, advert.rssi, decoded)
 
-        totalCount++
-        if (decoded?.hasSensorData == true) sensorCount++
+        totalCount.incrementAndGet()
+        if (decoded?.hasSensorData == true) sensorCount.incrementAndGet()
+        if (existing == null && category == DeviceCategory.SENSOR) newDeviceCount.incrementAndGet()
 
-        // Check promotion from ONCE → DEVICE/MYSTERY
-        var wasPromoted = false
-        var finalCategory = category
-        if (category == DeviceCategory.ONCE) {
-            val days = dao.countDistinctDays(advert.mac)
-            if (days >= 3) {
-                val hasId = DeviceClassifier.hasIdentity(
-                    entity.name, company, appearance, serviceHints, company, null
-                )
-                finalCategory = DeviceClassifier.promotedCategory(hasId)
-                dao.updateCategory(advert.mac, finalCategory)
-                wasPromoted = true
-                newDeviceCount++
-            }
-        }
-
-        // Notification for new sensors
-        if (existing == null && category == DeviceCategory.SENSOR) {
-            newDeviceCount++
-        }
+        val (finalCategory, wasPromoted) = checkPromotion(
+            mac = advert.mac, currentCategory = category,
+            name = entity.name, ouiVendor = ouiVendor, company = company,
+            appearance = appearance, serviceHints = serviceHints, deviceClassName = null,
+        )
+        val finalEntity = if (wasPromoted) entity.copy(category = finalCategory) else entity
+        deviceCache[advert.mac] = finalEntity
 
         return ProcessedDevice(
-            mac = advert.mac,
-            name = entity.name,
-            rssi = advert.rssi,
-            category = finalCategory,
-            brand = entity.brand,
-            model = entity.model,
-            type = entity.deviceType,
-            values = decoded?.values ?: emptyMap(),
-            company = entity.company,
-            appearance = entity.appearance,
-            serviceHints = serviceHints,
-            transport = Transport.BLE,
-            guessedType = guessedType,
-            wasPromoted = wasPromoted,
-            entity = entity.copy(category = finalCategory),
+            mac = advert.mac, name = entity.name, rssi = advert.rssi,
+            category = finalCategory, brand = entity.brand, model = entity.model,
+            type = entity.deviceType, values = decoded?.values ?: emptyMap(),
+            company = entity.company, appearance = entity.appearance,
+            serviceHints = serviceHints, transport = Transport.BLE,
+            guessedType = guessedType, wasPromoted = wasPromoted,
         )
     }
 
     suspend fun processClassic(device: ClassicDevice): ProcessedDevice {
-        val existing = dao.getDevice(device.mac)
+        val existing = cachedGetDevice(device.mac)
         val category = existing?.category ?: DeviceCategory.ONCE
         val today = LocalDate.now().toString()
         val company = OuiLookup.lookup(device.mac)
@@ -148,47 +124,48 @@ class ScanProcessor(
         )
         dao.upsertDevice(entity)
         persistSighting(device.mac, device.rssi, null)
+        totalCount.incrementAndGet()
 
-        totalCount++
-
-        var wasPromoted = false
-        var finalCategory = category
-        if (category == DeviceCategory.ONCE) {
-            val days = dao.countDistinctDays(device.mac)
-            if (days >= 3) {
-                val hasId = DeviceClassifier.hasIdentity(
-                    device.name, company, className, emptyList(), null, className
-                )
-                finalCategory = DeviceClassifier.promotedCategory(hasId)
-                dao.updateCategory(device.mac, finalCategory)
-                wasPromoted = true
-                newDeviceCount++
-            }
-        }
+        val (finalCategory, wasPromoted) = checkPromotion(
+            mac = device.mac, currentCategory = category,
+            name = device.name, ouiVendor = company, company = null,
+            appearance = className, serviceHints = emptyList(), deviceClassName = className,
+        )
+        val finalEntity = if (wasPromoted) entity.copy(category = finalCategory) else entity
+        deviceCache[device.mac] = finalEntity
 
         return ProcessedDevice(
-            mac = device.mac,
-            name = entity.name,
-            rssi = device.rssi,
-            category = finalCategory,
-            brand = null,
-            model = className,
-            type = null,
-            values = emptyMap(),
-            company = company,
-            appearance = className,
-            serviceHints = emptyList(),
+            mac = device.mac, name = entity.name, rssi = device.rssi,
+            category = finalCategory, brand = null, model = className,
+            type = null, values = emptyMap(), company = company,
+            appearance = className, serviceHints = emptyList(),
             transport = Transport.CLASSIC,
             guessedType = DeviceClassifier.guessTypeFromName(device.name),
             wasPromoted = wasPromoted,
-            entity = entity.copy(category = finalCategory),
         )
     }
 
+    private suspend fun cachedGetDevice(mac: String): DeviceEntity? =
+        deviceCache.getOrPut(mac) { dao.getDevice(mac) }
+
+    private suspend fun checkPromotion(
+        mac: String, currentCategory: DeviceCategory,
+        name: String?, ouiVendor: String?, company: String?,
+        appearance: String?, serviceHints: List<String>, deviceClassName: String?,
+    ): Pair<DeviceCategory, Boolean> {
+        if (currentCategory != DeviceCategory.ONCE) return currentCategory to false
+        val days = distinctDaysCache.getOrPut(mac) { dao.countDistinctDays(mac) }
+        if (days < 3) return DeviceCategory.ONCE to false
+
+        val hasId = DeviceClassifier.hasIdentity(name, ouiVendor, appearance, serviceHints, company, deviceClassName)
+        val promoted = DeviceClassifier.promotedCategory(hasId)
+        dao.updateCategory(mac, promoted)
+        newDeviceCount.incrementAndGet()
+        return promoted to true
+    }
+
     private fun resolveCategory(
-        existingCategory: DeviceCategory?,
-        advert: ParsedAdvert,
-        decoded: DecodedDevice?,
+        existingCategory: DeviceCategory?, advert: ParsedAdvert, decoded: de.schaefer.sniffle.decoder.DecodedDevice?,
     ): DeviceCategory {
         val fresh = DeviceClassifier.classifyBle(advert, decoded)
         return when {
@@ -198,19 +175,14 @@ class ScanProcessor(
         }
     }
 
-    private suspend fun persistSighting(mac: String, rssi: Int, decoded: DecodedDevice?) {
+    private suspend fun persistSighting(mac: String, rssi: Int, decoded: de.schaefer.sniffle.decoder.DecodedDevice?) {
         val valuesJson = decoded?.values?.takeIf { it.isNotEmpty() }?.let { vals ->
-            try {
-                Json.encodeToString(vals.mapValues { it.value.toString() })
-            } catch (_: Exception) { null }
+            try { Json.encodeToString(vals.mapValues { it.value.toString() }) } catch (_: Exception) { null }
         }
         dao.insertSighting(SightingEntity(
-            mac = mac,
-            timestamp = System.currentTimeMillis(),
-            latitude = latitude,
-            longitude = longitude,
-            rssi = rssi,
-            decodedValues = valuesJson,
+            mac = mac, timestamp = System.currentTimeMillis(),
+            latitude = latitude, longitude = longitude,
+            rssi = rssi, decodedValues = valuesJson,
         ))
     }
 }

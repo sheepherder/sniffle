@@ -11,6 +11,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.location.Location
 import android.os.IBinder
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
@@ -19,16 +20,17 @@ import de.schaefer.sniffle.App
 import de.schaefer.sniffle.ble.AdvertParser
 import de.schaefer.sniffle.ble.ClassicDevice
 import de.schaefer.sniffle.ble.ClassicScanner
+import de.schaefer.sniffle.ble.ParsedAdvert
 import de.schaefer.sniffle.ble.ScanProcessor
 import de.schaefer.sniffle.classify.OuiLookup
-import de.schaefer.sniffle.data.DeviceCategory
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
 import java.time.LocalDate
+import kotlin.coroutines.resume
 
 class ScanService : Service() {
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private var processor: ScanProcessor? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -44,47 +46,47 @@ class ScanService : Service() {
         val dao = (application as App).database.deviceDao()
         OuiLookup.init(this)
 
-        // Get GPS once for this scan session
-        var lat: Double? = null
-        var lon: Double? = null
-        try {
-            LocationServices.getFusedLocationProviderClient(this)
-                .getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, CancellationTokenSource().token)
-                .addOnSuccessListener { loc ->
-                    lat = loc?.latitude
-                    lon = loc?.longitude
-                    processor = ScanProcessor(dao, lat, lon)
-                }
-        } catch (_: Exception) {}
-
-        // Fallback if location fails
-        if (processor == null) processor = ScanProcessor(dao)
+        val btManager = getSystemService(BLUETOOTH_SERVICE) as? BluetoothManager
 
         scope.launch {
-            val proc = processor!!
+            // Get GPS with timeout before starting scan
+            val loc = withTimeoutOrNull(3_000L) { getLocation() }
+            val processor = ScanProcessor(dao, loc?.latitude, loc?.longitude)
+
+            // Channel to serialize BLE processing (avoid unbounded coroutines)
+            val bleChannel = Channel<ParsedAdvert>(Channel.UNLIMITED)
+            val classicChannel = Channel<ClassicDevice>(Channel.UNLIMITED)
+
+            // Consumer coroutines
+            val bleConsumer = launch { for (advert in bleChannel) processor.processBle(advert) }
+            val classicConsumer = launch { for (device in classicChannel) processor.processClassic(device) }
 
             if (bleScan) {
-                val scanner = (getSystemService(BLUETOOTH_SERVICE) as? BluetoothManager)
-                    ?.adapter?.bluetoothLeScanner
+                val scanner = btManager?.adapter?.bluetoothLeScanner
                 if (scanner != null) {
                     val settings = ScanSettings.Builder()
                         .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
                         .build()
                     val callback = object : ScanCallback() {
                         override fun onScanResult(callbackType: Int, result: ScanResult) {
-                            scope.launch { proc.processBle(AdvertParser.parse(result)) }
+                            bleChannel.trySend(AdvertParser.parse(result))
                         }
                     }
                     scanner.startScan(null, settings, callback)
                     launch {
                         delay(durationMs)
                         scanner.stopScan(callback)
+                        bleChannel.close()
                     }
+                } else {
+                    bleChannel.close()
                 }
+            } else {
+                bleChannel.close()
             }
 
             if (classicScan) {
-                val adapter = (getSystemService(BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
+                val adapter = btManager?.adapter
                 if (adapter != null) {
                     val receiver = object : BroadcastReceiver() {
                         override fun onReceive(ctx: Context, intent: Intent) {
@@ -95,15 +97,13 @@ class ScanService : Service() {
                                 val rssi = intent.getShortExtra(
                                     BluetoothDevice.EXTRA_RSSI, Short.MIN_VALUE
                                 ).toInt()
-                                scope.launch {
-                                    proc.processClassic(ClassicDevice(
-                                        mac = device.address,
-                                        name = device.name,
-                                        rssi = rssi,
-                                        deviceClass = device.bluetoothClass?.deviceClass,
-                                        deviceClassName = ClassicScanner.classToName(device.bluetoothClass),
-                                    ))
-                                }
+                                classicChannel.trySend(ClassicDevice(
+                                    mac = device.address,
+                                    name = device.name,
+                                    rssi = rssi,
+                                    deviceClass = device.bluetoothClass?.deviceClass,
+                                    deviceClassName = ClassicScanner.classToName(device.bluetoothClass),
+                                ))
                             }
                         }
                     }
@@ -113,21 +113,27 @@ class ScanService : Service() {
                         delay(durationMs)
                         adapter.cancelDiscovery()
                         unregisterReceiver(receiver)
+                        classicChannel.close()
                     }
+                } else {
+                    classicChannel.close()
                 }
+            } else {
+                classicChannel.close()
             }
 
-            delay(durationMs + 500)
+            // Wait for consumers to finish processing
+            bleConsumer.join()
+            classicConsumer.join()
 
-            // Cleanup stale ONCE entries
             dao.deleteStaleOnce(LocalDate.now().minusDays(90).toString())
-
-            // Notifications for promoted/new devices
-            // (handled via processor.wasPromoted in a future iteration)
 
             if (showSummary) {
                 NotificationHelper.notifyScanSummary(
-                    this@ScanService, proc.totalCount, proc.sensorCount, proc.newDeviceCount
+                    this@ScanService,
+                    processor.totalCount.get(),
+                    processor.sensorCount.get(),
+                    processor.newDeviceCount.get(),
                 )
             }
 
@@ -135,6 +141,18 @@ class ScanService : Service() {
         }
 
         return START_NOT_STICKY
+    }
+
+    @SuppressLint("MissingPermission")
+    private suspend fun getLocation(): Location? = suspendCancellableCoroutine { cont ->
+        try {
+            LocationServices.getFusedLocationProviderClient(this)
+                .getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, CancellationTokenSource().token)
+                .addOnSuccessListener { cont.resume(it) }
+                .addOnFailureListener { cont.resume(null) }
+        } catch (_: Exception) {
+            cont.resume(null)
+        }
     }
 
     override fun onDestroy() {
