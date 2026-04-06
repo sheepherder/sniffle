@@ -59,6 +59,7 @@ class ScanProcessor(
         val existing = cachedGetDevice(advert.mac)
         val category = resolveCategory(existing?.category, advert, decoded)
         val today = LocalDate.now().toString()
+        val now = System.currentTimeMillis()
 
         val entity = DeviceEntity(
             mac = advert.mac,
@@ -73,6 +74,7 @@ class ScanProcessor(
             company = company ?: existing?.company,
             firstSeenDate = existing?.firstSeenDate ?: today,
             latestSeenDate = today,
+            latestSeenMs = now,
             note = existing?.note,
             notified = existing?.notified ?: false,
         )
@@ -105,6 +107,7 @@ class ScanProcessor(
         val existing = cachedGetDevice(device.mac)
         val category = existing?.category ?: DeviceCategory.ONCE
         val today = LocalDate.now().toString()
+        val now = System.currentTimeMillis()
         val company = OuiLookup.lookup(device.mac)
         val className = device.deviceClassName
 
@@ -119,6 +122,7 @@ class ScanProcessor(
             company = company,
             firstSeenDate = existing?.firstSeenDate ?: today,
             latestSeenDate = today,
+            latestSeenMs = now,
             note = existing?.note,
             notified = existing?.notified ?: false,
         )

@@ -9,7 +9,7 @@ enum class Transport { BLE, CLASSIC }
 
 @Entity(
     tableName = "devices",
-    indices = [Index("category"), Index("latestSeenDate")]
+    indices = [Index("category"), Index("latestSeenDate"), Index("latestSeenMs")]
 )
 data class DeviceEntity(
     @PrimaryKey val mac: String,
@@ -24,6 +24,7 @@ data class DeviceEntity(
     val company: String? = null,
     val firstSeenDate: String = "",
     val latestSeenDate: String = "",
+    val latestSeenMs: Long = 0L,
     val note: String? = null,
     val notified: Boolean = false,
 )

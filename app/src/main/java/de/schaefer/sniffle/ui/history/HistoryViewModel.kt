@@ -7,7 +7,6 @@ import de.schaefer.sniffle.data.DeviceCategory
 import de.schaefer.sniffle.data.DeviceEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 
 data class HistoryState(
@@ -21,21 +20,14 @@ data class HistoryState(
 class HistoryViewModel(application: Application) : AndroidViewModel(application) {
 
     private val dao = (application as App).database.deviceDao()
-
-    val allDevices: Flow<List<DeviceEntity>> = dao.observeAllDevices()
-
     private val _onceExpanded = MutableStateFlow(false)
 
-    val state: Flow<HistoryState> = combine(allDevices, _onceExpanded) { devices, expanded ->
+    val state: Flow<HistoryState> = combine(dao.observeAllDevices(), _onceExpanded) { devices, expanded ->
         HistoryState(
-            sensors = devices.filter { it.category == DeviceCategory.SENSOR }
-                .sortedByDescending { it.latestSeenDate },
-            devices = devices.filter { it.category == DeviceCategory.DEVICE }
-                .sortedByDescending { it.latestSeenDate },
-            mystery = devices.filter { it.category == DeviceCategory.MYSTERY }
-                .sortedByDescending { it.latestSeenDate },
-            once = devices.filter { it.category == DeviceCategory.ONCE }
-                .sortedByDescending { it.latestSeenDate },
+            sensors = devices.filter { it.category == DeviceCategory.SENSOR }.sortedByDescending { it.latestSeenMs },
+            devices = devices.filter { it.category == DeviceCategory.DEVICE }.sortedByDescending { it.latestSeenMs },
+            mystery = devices.filter { it.category == DeviceCategory.MYSTERY }.sortedByDescending { it.latestSeenMs },
+            once = devices.filter { it.category == DeviceCategory.ONCE }.sortedByDescending { it.latestSeenMs },
             onceExpanded = expanded,
         )
     }

@@ -21,12 +21,15 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import de.schaefer.sniffle.ui.detail.DetailScreen
 import de.schaefer.sniffle.ui.history.HistoryScreen
 import de.schaefer.sniffle.ui.map.MapScreen
 import de.schaefer.sniffle.ui.onboarding.OnboardingScreen
 import de.schaefer.sniffle.ui.onboarding.needsOnboarding
 import de.schaefer.sniffle.ui.scan.LiveScreen
+import de.schaefer.sniffle.ui.scan.LiveViewModel
 import de.schaefer.sniffle.ui.settings.SettingsScreen
 
 enum class Tab(val route: String, val label: String, val icon: ImageVector) {
@@ -49,9 +52,11 @@ fun SniffleApp() {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
-
-    // Hide bottom bar on detail screen
     val showBottomBar = currentDestination?.route?.startsWith("detail") != true
+
+    // Shared LiveViewModel so HistoryScreen can show live indicators
+    val liveViewModel: LiveViewModel = viewModel()
+    val liveState by liveViewModel.state.collectAsStateWithLifecycle()
 
     Scaffold(
         bottomBar = {
@@ -84,12 +89,16 @@ fun SniffleApp() {
         ) {
             composable(Tab.Live.route) {
                 LiveScreen(
-                    onDeviceTap = { mac -> navController.navigate("detail/$mac") }
+                    onDeviceTap = { mac -> navController.navigate("detail/$mac") },
+                    viewModel = liveViewModel,
                 )
             }
             composable(Tab.History.route) {
                 HistoryScreen(
-                    onDeviceTap = { mac -> navController.navigate("detail/$mac") }
+                    onDeviceTap = { mac -> navController.navigate("detail/$mac") },
+                    liveMacs = liveState.allMacs,
+                    liveRssi = liveState.rssiMap,
+                    liveValues = liveState.valuesMap,
                 )
             }
             composable(Tab.Map.route) {
