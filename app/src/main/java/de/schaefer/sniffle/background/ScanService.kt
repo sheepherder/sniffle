@@ -122,9 +122,10 @@ class ScanService : Service() {
                 classicChannel.close()
             }
 
-            // Wait for consumers to finish processing
+            // Wait for consumers to finish, then flush remaining data to DB
             bleConsumer.join()
             classicConsumer.join()
+            processor.flush()
 
             dao.deleteStaleOnce(LocalDate.now().minusDays(90).toString())
 

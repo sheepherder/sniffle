@@ -108,6 +108,7 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
 
     override fun onCleared() {
         locationCallback?.let { locationClient.removeLocationUpdates(it) }
+        kotlinx.coroutines.runBlocking { processor.flush() }
         super.onCleared()
     }
 

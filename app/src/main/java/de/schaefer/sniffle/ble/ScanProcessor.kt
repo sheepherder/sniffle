@@ -9,6 +9,7 @@ import de.schaefer.sniffle.data.DeviceDao
 import de.schaefer.sniffle.data.DeviceEntity
 import de.schaefer.sniffle.data.SightingEntity
 import de.schaefer.sniffle.data.Transport
+import de.schaefer.sniffle.decoder.DecodedDevice
 import de.schaefer.sniffle.decoder.DecoderChain
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -33,20 +34,24 @@ data class ProcessedDevice(
 )
 
 /**
- * Shared scan processing pipeline used by both LiveViewModel and ScanService.
+ * Shared scan processing pipeline.
+ *
+ * Throttles DB writes: each device is persisted at most once per [persistIntervalMs].
+ * Live UI updates come from the returned [ProcessedDevice] in memory, not from DB.
  */
 class ScanProcessor(
     private val dao: DeviceDao,
     @Volatile var latitude: Double? = null,
     @Volatile var longitude: Double? = null,
+    private val persistIntervalMs: Long = 30_000L,
 ) {
     val newDeviceCount = AtomicInteger()
     val sensorCount = AtomicInteger()
     val totalCount = AtomicInteger()
 
-    // Caches — valid for one scan session, avoid repeated DB reads
     private val deviceCache = mutableMapOf<String, DeviceEntity?>()
     private val distinctDaysCache = mutableMapOf<String, Int>()
+    private val lastPersistedAt = mutableMapOf<String, Long>()
 
     suspend fun processBle(advert: ParsedAdvert): ProcessedDevice {
         val decoded = DecoderChain.decode(advert)
@@ -78,20 +83,29 @@ class ScanProcessor(
             note = existing?.note,
             notified = existing?.notified ?: false,
         )
-        dao.upsertDevice(entity)
-        persistSighting(advert.mac, advert.rssi, decoded)
 
         totalCount.incrementAndGet()
         if (decoded?.hasSensorData == true) sensorCount.incrementAndGet()
-        if (existing == null && category == DeviceCategory.SENSOR) newDeviceCount.incrementAndGet()
+
+        // Throttle DB writes: persist device + sighting at most every persistIntervalMs per MAC
+        val shouldPersist = shouldPersist(advert.mac, now, isNew = existing == null)
+        if (shouldPersist) {
+            dao.upsertDevice(entity)
+            persistSighting(advert.mac, advert.rssi, decoded)
+            if (existing == null && category == DeviceCategory.SENSOR) newDeviceCount.incrementAndGet()
+        }
+
+        // Always update in-memory cache
+        deviceCache[advert.mac] = entity
 
         val (finalCategory, wasPromoted) = checkPromotion(
             mac = advert.mac, currentCategory = category,
             name = entity.name, ouiVendor = ouiVendor, company = company,
             appearance = appearance, serviceHints = serviceHints, deviceClassName = null,
         )
-        val finalEntity = if (wasPromoted) entity.copy(category = finalCategory) else entity
-        deviceCache[advert.mac] = finalEntity
+        if (wasPromoted) {
+            deviceCache[advert.mac] = entity.copy(category = finalCategory)
+        }
 
         return ProcessedDevice(
             mac = advert.mac, name = entity.name, rssi = advert.rssi,
@@ -126,17 +140,25 @@ class ScanProcessor(
             note = existing?.note,
             notified = existing?.notified ?: false,
         )
-        dao.upsertDevice(entity)
-        persistSighting(device.mac, device.rssi, null)
+
         totalCount.incrementAndGet()
+
+        val shouldPersist = shouldPersist(device.mac, now, isNew = existing == null)
+        if (shouldPersist) {
+            dao.upsertDevice(entity)
+            persistSighting(device.mac, device.rssi, null)
+        }
+
+        deviceCache[device.mac] = entity
 
         val (finalCategory, wasPromoted) = checkPromotion(
             mac = device.mac, currentCategory = category,
             name = device.name, ouiVendor = company, company = null,
             appearance = className, serviceHints = emptyList(), deviceClassName = className,
         )
-        val finalEntity = if (wasPromoted) entity.copy(category = finalCategory) else entity
-        deviceCache[device.mac] = finalEntity
+        if (wasPromoted) {
+            deviceCache[device.mac] = entity.copy(category = finalCategory)
+        }
 
         return ProcessedDevice(
             mac = device.mac, name = entity.name, rssi = device.rssi,
@@ -147,6 +169,26 @@ class ScanProcessor(
             guessedType = DeviceClassifier.guessTypeFromName(device.name),
             wasPromoted = wasPromoted,
         )
+    }
+
+    /** Flush all pending devices to DB. Call at end of scan session. */
+    suspend fun flush() {
+        for ((mac, entity) in deviceCache) {
+            if (entity != null) dao.upsertDevice(entity)
+        }
+    }
+
+    private fun shouldPersist(mac: String, now: Long, isNew: Boolean): Boolean {
+        if (isNew) {
+            lastPersistedAt[mac] = now
+            return true
+        }
+        val last = lastPersistedAt[mac] ?: 0L
+        if (now - last >= persistIntervalMs) {
+            lastPersistedAt[mac] = now
+            return true
+        }
+        return false
     }
 
     private suspend fun cachedGetDevice(mac: String): DeviceEntity? =
@@ -169,7 +211,7 @@ class ScanProcessor(
     }
 
     private fun resolveCategory(
-        existingCategory: DeviceCategory?, advert: ParsedAdvert, decoded: de.schaefer.sniffle.decoder.DecodedDevice?,
+        existingCategory: DeviceCategory?, advert: ParsedAdvert, decoded: DecodedDevice?,
     ): DeviceCategory {
         val fresh = DeviceClassifier.classifyBle(advert, decoded)
         return when {
@@ -179,7 +221,7 @@ class ScanProcessor(
         }
     }
 
-    private suspend fun persistSighting(mac: String, rssi: Int, decoded: de.schaefer.sniffle.decoder.DecodedDevice?) {
+    private suspend fun persistSighting(mac: String, rssi: Int, decoded: DecodedDevice?) {
         val valuesJson = decoded?.values?.takeIf { it.isNotEmpty() }?.let { vals ->
             try { Json.encodeToString(vals.mapValues { it.value.toString() }) } catch (_: Exception) { null }
         }
