@@ -8,12 +8,12 @@ plugins {
 
 android {
     namespace = "de.schaefer.sniffle"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "de.schaefer.sniffle"
-        minSdk = 31
-        targetSdk = 35
+        minSdk = 33
+        targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
 
@@ -39,6 +39,14 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
+        allWarningsAsErrors = true
+    }
+
+    lint {
+        warningsAsErrors = true
+        abortOnError = true
+        checkDependencies = true
+        disable += "AndroidGradlePluginVersion" // staying on AGP 8.x, 9.x is too breaking
     }
 
     buildFeatures {

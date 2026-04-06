@@ -91,8 +91,8 @@ class ScanService : Service() {
                     val receiver = object : BroadcastReceiver() {
                         override fun onReceive(ctx: Context, intent: Intent) {
                             if (intent.action == BluetoothDevice.ACTION_FOUND) {
-                                val device = intent.getParcelableExtra<BluetoothDevice>(
-                                    BluetoothDevice.EXTRA_DEVICE
+                                val device = intent.getParcelableExtra(
+                                    BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java
                                 ) ?: return
                                 val rssi = intent.getShortExtra(
                                     BluetoothDevice.EXTRA_RSSI, Short.MIN_VALUE

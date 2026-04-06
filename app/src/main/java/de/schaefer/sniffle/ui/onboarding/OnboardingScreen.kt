@@ -3,7 +3,6 @@ package de.schaefer.sniffle.ui.onboarding
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
-import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -13,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
+import androidx.core.content.edit
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 
@@ -104,30 +104,25 @@ fun OnboardingScreen(onComplete: () -> Unit) {
             }
 
             3 -> {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    Text("Benachrichtigungen", style = MaterialTheme.typography.headlineSmall)
-                    Spacer(Modifier.height(16.dp))
-                    Text(
-                        "Sniffle benachrichtigt dich wenn neue " +
-                        "Sensoren oder interessante Geräte gefunden werden.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        textAlign = TextAlign.Center,
-                    )
-                    Spacer(Modifier.height(24.dp))
-                    Button(onClick = {
-                        permissionLauncher.launch(arrayOf(Manifest.permission.POST_NOTIFICATIONS))
-                    }) {
-                        Text("Berechtigung erteilen")
-                    }
-                } else {
-                    // Pre-Android 13: no runtime permission needed
-                    step = 4
+                Text("Benachrichtigungen", style = MaterialTheme.typography.headlineSmall)
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    "Sniffle benachrichtigt dich wenn neue " +
+                    "Sensoren oder interessante Geräte gefunden werden.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(Modifier.height(24.dp))
+                Button(onClick = {
+                    permissionLauncher.launch(arrayOf(Manifest.permission.POST_NOTIFICATIONS))
+                }) {
+                    Text("Berechtigung erteilen")
                 }
             }
 
             else -> {
                 context.getSharedPreferences("sniffle_settings", Context.MODE_PRIVATE)
-                    .edit().putBoolean("onboarding_done", true).apply()
+                    .edit { putBoolean("onboarding_done", true) }
                 onComplete()
             }
         }

@@ -18,9 +18,10 @@
 
     <application
         android:name=".App"
-        android:allowBackup="true"
+        android:icon="@android:drawable/stat_sys_data_bluetooth"
         android:label="@string/app_name"
         android:supportsRtl="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:theme="@style/Theme.Sniffle">
 
         <activity

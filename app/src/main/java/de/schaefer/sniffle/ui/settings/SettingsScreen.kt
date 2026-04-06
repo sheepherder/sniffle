@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.edit
 import de.schaefer.sniffle.background.ScanWorker
 
 private val INTERVALS = listOf(
@@ -52,85 +53,64 @@ fun SettingsScreen() {
         Spacer(Modifier.height(24.dp))
         SectionTitle("Hintergrund-Scan")
 
-        // Background toggle
         SettingSwitch("Hintergrund-Scan aktiv", bgEnabled) { enabled ->
             bgEnabled = enabled
-            prefs.edit().putBoolean("bg_enabled", enabled).apply()
-            if (enabled) {
-                ScanWorker.schedule(context, intervalMin)
-            } else {
-                ScanWorker.cancel(context)
-            }
+            prefs.edit { putBoolean("bg_enabled", enabled) }
+            if (enabled) ScanWorker.schedule(context, intervalMin) else ScanWorker.cancel(context)
         }
 
-        // Interval
         if (bgEnabled) {
             Spacer(Modifier.height(8.dp))
             Text("Intervall", style = MaterialTheme.typography.labelLarge)
             Spacer(Modifier.height(4.dp))
-            SingleChoiceSegment(
-                options = INTERVALS,
-                selected = intervalMin,
-                onSelect = { min ->
-                    intervalMin = min
-                    prefs.edit().putLong("interval_min", min).apply()
-                    ScanWorker.schedule(context, min)
-                }
-            )
+            SingleChoiceSegment(INTERVALS, intervalMin) { min ->
+                intervalMin = min
+                prefs.edit { putLong("interval_min", min) }
+                ScanWorker.schedule(context, min)
+            }
 
             Spacer(Modifier.height(12.dp))
             Text("Scan-Dauer", style = MaterialTheme.typography.labelLarge)
             Spacer(Modifier.height(4.dp))
-            SingleChoiceSegment(
-                options = DURATIONS,
-                selected = durationMs,
-                onSelect = { ms ->
-                    durationMs = ms
-                    prefs.edit().putLong("scan_duration_ms", ms).apply()
-                }
-            )
+            SingleChoiceSegment(DURATIONS, durationMs) { ms ->
+                durationMs = ms
+                prefs.edit { putLong("scan_duration_ms", ms) }
+            }
         }
 
         Spacer(Modifier.height(24.dp))
         SectionTitle("Scan-Typen")
         SettingSwitch("BLE-Scan", bleScan) {
             bleScan = it
-            prefs.edit().putBoolean("ble_scan", it).apply()
+            prefs.edit { putBoolean("ble_scan", it) }
         }
         SettingSwitch("Classic Bluetooth", classicScan) {
             classicScan = it
-            prefs.edit().putBoolean("classic_scan", it).apply()
+            prefs.edit { putBoolean("classic_scan", it) }
         }
 
         Spacer(Modifier.height(24.dp))
         SectionTitle("Benachrichtigungen")
         SettingSwitch("Geräte-Benachrichtigungen", notifications) {
             notifications = it
-            prefs.edit().putBoolean("notifications", it).apply()
+            prefs.edit { putBoolean("notifications", it) }
         }
         SettingSwitch("Scan-Zusammenfassung (leise)", scanSummary) {
             scanSummary = it
-            prefs.edit().putBoolean("scan_summary", it).apply()
+            prefs.edit { putBoolean("scan_summary", it) }
         }
     }
 }
 
 @Composable
 private fun SectionTitle(text: String) {
-    Text(
-        text,
-        style = MaterialTheme.typography.titleMedium,
-        fontWeight = FontWeight.Bold,
-        modifier = Modifier.padding(bottom = 8.dp)
-    )
+    Text(text, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
 }
 
 @Composable
 private fun SettingSwitch(label: String, checked: Boolean, onChanged: (Boolean) -> Unit) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(label, modifier = Modifier.weight(1f))
@@ -139,21 +119,10 @@ private fun SettingSwitch(label: String, checked: Boolean, onChanged: (Boolean) 
 }
 
 @Composable
-private fun <T> SingleChoiceSegment(
-    options: List<Pair<T, String>>,
-    selected: T,
-    onSelect: (T) -> Unit,
-) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
+private fun <T> SingleChoiceSegment(options: List<Pair<T, String>>, selected: T, onSelect: (T) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
         for ((value, label) in options) {
-            FilterChip(
-                selected = value == selected,
-                onClick = { onSelect(value) },
-                label = { Text(label, style = MaterialTheme.typography.labelSmall) },
-            )
+            FilterChip(selected = value == selected, onClick = { onSelect(value) }, label = { Text(label, style = MaterialTheme.typography.labelSmall) })
         }
     }
 }

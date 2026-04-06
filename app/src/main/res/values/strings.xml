@@ -1,14 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Sniffle</string>
-    <string name="tab_live">Live</string>
-    <string name="tab_history">Funde</string>
-    <string name="tab_map">Karte</string>
-    <string name="tab_settings">Einstellungen</string>
-    <string name="category_sensors">Sensoren</string>
-    <string name="category_devices">Geräte</string>
-    <string name="category_mystery">Mystery</string>
-    <string name="category_once">Flüchtige</string>
     <string name="notification_channel_devices">Geräte-Funde</string>
     <string name="notification_channel_summary">Scan-Zusammenfassung</string>
     <string name="notification_channel_service">Hintergrund-Scan</string>
