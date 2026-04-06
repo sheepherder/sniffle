@@ -28,21 +28,31 @@ class DetailViewModel(
     private val _state = MutableStateFlow(DetailState())
     val state: StateFlow<DetailState> = _state
 
+    private var noteInitialized = false
+
     init {
         viewModelScope.launch {
             dao.observeSightings(mac).collect { sightings ->
                 val device = dao.getDevice(mac)
-                _state.value = _state.value.copy(
-                    device = device,
-                    sightings = sightings,
-                    note = device?.note ?: "",
-                )
+                _state.update { old ->
+                    old.copy(
+                        device = device,
+                        sightings = sightings,
+                        // Only set note from DB on first load, never overwrite user input
+                        note = if (!noteInitialized) {
+                            noteInitialized = true
+                            device?.note ?: ""
+                        } else {
+                            old.note
+                        },
+                    )
+                }
             }
         }
     }
 
     fun updateNote(note: String) {
-        _state.value = _state.value.copy(note = note)
+        _state.update { it.copy(note = note) }
         viewModelScope.launch {
             dao.updateNote(mac, note.ifBlank { null })
         }
@@ -51,7 +61,7 @@ class DetailViewModel(
     fun delete() {
         viewModelScope.launch {
             dao.deleteDevice(mac)
-            _state.value = _state.value.copy(deleted = true)
+            _state.update { it.copy(deleted = true) }
         }
     }
 }
