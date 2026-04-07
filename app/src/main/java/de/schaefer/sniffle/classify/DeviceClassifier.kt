@@ -10,8 +10,8 @@ import de.schaefer.sniffle.decoder.DecodedDevice
  *
  * Category flow:
  * - SENSOR: immediately if decoded with sensor data
- * - DEVICE: promoted from ONCE when seen on 3+ distinct days AND has identity
- * - MYSTERY: promoted from ONCE when seen on 3+ distinct days AND has NO identity
+ * - DEVICE: promoted from ONCE when seen 3+ times ≥20h apart AND has identity
+ * - MYSTERY: promoted from ONCE when seen 3+ times ≥20h apart AND has NO identity
  * - ONCE: everything else (default)
  *
  * Promotion from ONCE is checked externally (needs DB access).

@@ -98,7 +98,7 @@ class ScanProcessor(
             if (isNew && category == DeviceCategory.SENSOR) newDeviceCount.incrementAndGet()
 
             val (promoted, did) = checkPromotion(
-                mac = advert.mac, currentCategory = category,
+                mac = advert.mac, currentCategory = category, nowMs = nowMs,
                 name = merged.name ?: merged.classicName, ouiVendor = ouiVendor, company = company,
                 appearance = appearance, serviceHints = serviceHints, deviceClassName = null,
             )
@@ -157,7 +157,7 @@ class ScanProcessor(
             persistSighting(device.mac, device.rssi, null)
 
             val (promoted, did) = checkPromotion(
-                mac = device.mac, currentCategory = category,
+                mac = device.mac, currentCategory = category, nowMs = nowMs,
                 name = merged.name ?: merged.classicName, ouiVendor = company, company = null,
                 appearance = className, serviceHints = emptyList(), deviceClassName = className,
             )
@@ -214,14 +214,26 @@ class ScanProcessor(
     private suspend fun getOrLoadDevice(mac: String): DeviceEntity? =
         knownDevices.getOrPut(mac) { dao.getDevice(mac) }
 
+    private companion object {
+        /** Minimum number of sightings required for promotion (including the current one). */
+        const val PROMOTION_COUNT = 3
+        /** Minimum time gap (ms) between sightings that count towards promotion. */
+        const val PROMOTION_INTERVAL_MS = 20L * 60 * 60 * 1000 // 20 hours
+    }
+
     private suspend fun checkPromotion(
-        mac: String, currentCategory: DeviceCategory,
+        mac: String, currentCategory: DeviceCategory, nowMs: Long,
         name: String?, ouiVendor: String?, company: String?,
         appearance: String?, serviceHints: List<String>, deviceClassName: String?,
     ): Pair<DeviceCategory, Boolean> {
         if (currentCategory != DeviceCategory.ONCE) return currentCategory to false
-        val days = dao.countDistinctDays(mac)
-        if (days < 2) return DeviceCategory.ONCE to false  // TODO: back to 3 after testing
+
+        // Current sighting counts as #1. Query walks backwards from now, finding
+        // prior sightings each ≥ PROMOTION_INTERVAL_MS apart. We need (COUNT - 1) more.
+        val prior = dao.countPriorSightings(
+            mac, nowMs, PROMOTION_INTERVAL_MS, PROMOTION_COUNT - 1,
+        )
+        if (prior < PROMOTION_COUNT - 1) return DeviceCategory.ONCE to false
 
         val hasId = DeviceClassifier.hasIdentity(name, ouiVendor, appearance, serviceHints, company, deviceClassName)
         val promoted = DeviceClassifier.promotedCategory(hasId)

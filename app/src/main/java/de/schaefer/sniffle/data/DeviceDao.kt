@@ -55,11 +55,31 @@ interface DeviceDao {
     @Query("SELECT * FROM sightings WHERE mac = :mac ORDER BY timestamp DESC")
     fun observeSightings(mac: String): Flow<List<SightingEntity>>
 
+    /**
+     * Counts how many prior sightings exist that are each at least [intervalMs] apart,
+     * starting from [nowMs] (the current sighting, not yet counted).
+     *
+     * Uses a recursive CTE that walks backwards through sightings:
+     * 1. Find the latest sighting ≥ [intervalMs] before [nowMs]
+     * 2. From that, find the latest sighting ≥ [intervalMs] before it
+     * 3. Repeat up to [remaining] times (early stop — we don't need more)
+     *
+     * Returns 0..[remaining]. Promotion triggers when result ≥ [remaining].
+     * Each step is a single index lookup on (mac, timestamp) — O(remaining), not O(rows).
+     */
     @Query("""
-        SELECT COUNT(DISTINCT date(timestamp / 1000, 'unixepoch', 'localtime'))
-        FROM sightings WHERE mac = :mac
+        WITH RECURSIVE chain(ts, depth) AS (
+            SELECT MAX(timestamp), 1 FROM sightings
+            WHERE mac = :mac AND timestamp <= :nowMs - :intervalMs
+            UNION ALL
+            SELECT (SELECT MAX(timestamp) FROM sightings
+                    WHERE mac = :mac AND timestamp <= chain.ts - :intervalMs),
+                   depth + 1
+            FROM chain WHERE depth < :remaining AND ts IS NOT NULL
+        )
+        SELECT COALESCE(MAX(depth), 0) FROM chain WHERE ts IS NOT NULL
     """)
-    suspend fun countDistinctDays(mac: String): Int
+    suspend fun countPriorSightings(mac: String, nowMs: Long, intervalMs: Long, remaining: Int): Int
 
     @Query("UPDATE devices SET note = :note WHERE mac = :mac")
     suspend fun updateNote(mac: String, note: String?)
