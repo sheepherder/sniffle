@@ -41,7 +41,10 @@ enum class Tab(val route: String, val label: String, val icon: ImageVector) {
 }
 
 @Composable
-fun SniffleApp() {
+fun SniffleApp(
+    deepLinkMac: String? = null,
+    onDeepLinkConsumed: () -> Unit = {},
+) {
     val context = LocalContext.current
     var showOnboarding by remember { mutableStateOf(needsOnboarding(context)) }
 
@@ -51,6 +54,16 @@ fun SniffleApp() {
     }
 
     val navController = rememberNavController()
+
+    LaunchedEffect(deepLinkMac) {
+        if (deepLinkMac != null) {
+            navController.navigate("detail/$deepLinkMac") {
+                launchSingleTop = true
+            }
+            onDeepLinkConsumed()
+        }
+    }
+
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
     val showBottomBar = currentDestination?.route?.startsWith("detail") != true

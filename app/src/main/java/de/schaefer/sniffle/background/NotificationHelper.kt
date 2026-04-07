@@ -15,6 +15,17 @@ object NotificationHelper {
 
     private var nextId = 1000
 
+    private fun openAppIntent(context: Context, requestCode: Int, mac: String? = null): PendingIntent {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            mac?.let { putExtra(MainActivity.EXTRA_NAVIGATE_TO_MAC, it) }
+        }
+        return PendingIntent.getActivity(
+            context, requestCode, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
+
     fun notifyDevice(context: Context, device: DeviceEntity, values: String?) {
         val title = when (device.category) {
             DeviceCategory.SENSOR -> "Neuer Sensor: ${device.displayName}"
@@ -34,21 +45,13 @@ object NotificationHelper {
             DeviceCategory.ONCE -> return
         }
 
-        val intent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        }
-        val pending = PendingIntent.getActivity(
-            context, nextId, intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
         val notification = NotificationCompat.Builder(context, App.CHANNEL_DEVICES)
             .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
             .setContentTitle(title)
             .setContentText(body)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
-            .setContentIntent(pending)
+            .setContentIntent(openAppIntent(context, nextId, device.mac))
             .build()
 
         try {
@@ -65,6 +68,7 @@ object NotificationHelper {
             .setContentText(summary)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setAutoCancel(true)
+            .setContentIntent(openAppIntent(context, 998))
             .build()
 
         try {
@@ -79,6 +83,7 @@ object NotificationHelper {
             .setContentText("Scanne nach Geräten…")
             .setPriority(NotificationCompat.PRIORITY_MIN)
             .setOngoing(true)
+            .setContentIntent(openAppIntent(context, 997))
             .build()
     }
 }
