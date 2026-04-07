@@ -30,13 +30,7 @@ object OuiLookup {
     }
 
     fun lookup(mac: String): String? {
-        if (isRandomMac(mac)) return null
         val oui = mac.take(8).replace(":", "").uppercase()
         return db[oui]
-    }
-
-    fun isRandomMac(mac: String): Boolean {
-        val first = mac.substringBefore(':').toIntOrNull(16) ?: return true
-        return first and 0x02 != 0
     }
 }

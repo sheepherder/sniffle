@@ -19,11 +19,6 @@ import de.schaefer.sniffle.decoder.DecodedDevice
  */
 object DeviceClassifier {
 
-    private val BORING_MODELS = setOf(
-        "APPLE_CONT", "APPLEDEVICE", "APPLEWATCH", "APPLEAIRPODS",
-        "MS-CDP", "GAEN",
-    )
-
     private val NAME_PATTERNS = listOf(
         Regex("\\[TV]|Smart.?TV|TV\\b|BRAVIA|LG.?TV|Roku", RegexOption.IGNORE_CASE) to "TV",
         Regex("EOS\\s?R|Canon|Nikon|ILCE|SONY.*CAM|LUMIX", RegexOption.IGNORE_CASE) to "Kamera",
@@ -51,13 +46,11 @@ object DeviceClassifier {
 
     /**
      * Initial category for a newly discovered BLE device.
+     * SENSOR only if decoded with sensor data AND stable MAC (Public or Random Static).
+     * RPAs and Non-Resolvable addresses stay ONCE — they rotate and can't be tracked.
      */
     fun classifyBle(advert: ParsedAdvert, decoded: DecodedDevice?): DeviceCategory {
-        // Boring devices (Apple Continuity, MS-CDP) start as ONCE — their "sensor data"
-        // is usually just battery level, not worth promoting to SENSOR.
-        // They can still be promoted to DEVICE/MYSTERY via the normal 3-day path.
-        if (isBoring(decoded)) return DeviceCategory.ONCE
-        if (decoded?.hasSensorData == true) return DeviceCategory.SENSOR
+        if (decoded?.hasSensorData == true && MacClassifier.isStable(advert.mac)) return DeviceCategory.SENSOR
         return DeviceCategory.ONCE
     }
 
@@ -116,9 +109,4 @@ object DeviceClassifier {
         return null
     }
 
-    /**
-     * Check if a decoded device is "boring" (Apple Continuity, MS-CDP, etc.)
-     */
-    fun isBoring(decoded: DecodedDevice?): Boolean =
-        decoded?.modelId in BORING_MODELS
 }
