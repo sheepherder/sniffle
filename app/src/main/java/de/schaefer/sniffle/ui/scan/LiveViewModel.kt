@@ -18,7 +18,8 @@ import de.schaefer.sniffle.ble.ScanProcessor
 import de.schaefer.sniffle.classify.OuiLookup
 import de.schaefer.sniffle.data.DeviceCategory
 import de.schaefer.sniffle.data.DeviceEntity
-import de.schaefer.sniffle.data.Transport
+import de.schaefer.sniffle.data.includesBle
+import de.schaefer.sniffle.data.includesClassic
 import de.schaefer.sniffle.util.Preferences
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -56,6 +57,7 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
 
     private val liveDevices = mutableMapOf<String, ProcessedDevice>()
     private val lastSeenAt = mutableMapOf<String, Long>()
+    private var notesMap = emptyMap<String, String>()
     private var refreshJob: Job? = null
     private var locationCallback: LocationCallback? = null
     private var bleJob: Job? = null
@@ -63,10 +65,17 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         OuiLookup.init(application)
+        viewModelScope.launch {
+            dao.observeNotes().collect { notes ->
+                notesMap = notes.associate { it.mac to it.note }
+                if (liveDevices.isNotEmpty()) scheduleRefresh()
+            }
+        }
     }
 
     @SuppressLint("MissingPermission")
     fun startScanning() {
+        (getApplication<Application>() as App).isScanning = true
         startLocationUpdates()
         restartScans()
     }
@@ -81,7 +90,10 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
             bleJob = viewModelScope.launch {
                 bleScanner.scan().collect { advert ->
                     val result = processor.processBle(advert)
-                    liveDevices[result.mac] = result
+                    val prev = liveDevices[result.mac]
+                    // Keep previous values if this advertisement has none
+                    liveDevices[result.mac] = if (result.values.isEmpty() && prev != null)
+                        result.copy(values = prev.values) else result
                     lastSeenAt[result.mac] = System.currentTimeMillis()
                     scheduleRefresh()
                 }
@@ -137,8 +149,8 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     override fun onCleared() {
+        (getApplication<Application>() as App).isScanning = false
         locationCallback?.let { locationClient.removeLocationUpdates(it) }
-        kotlinx.coroutines.runBlocking { processor.flush() }
         super.onCleared()
     }
 
@@ -150,7 +162,9 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
             liveDevices.keys.removeAll { mac -> (lastSeenAt[mac] ?: 0) < cutoff }
 
             val all = liveDevices.values.toList()
-            val entities = all.map { it.toEntity() }
+            val entities = all.map { d ->
+                d.toEntity().let { e -> notesMap[e.mac]?.let { e.copy(note = it) } ?: e }
+            }
             val rssiMap = all.associate { it.mac to it.rssi }
             val valuesMap = all.filter { it.values.isNotEmpty() }.associate { it.mac to it.values }
 
@@ -163,8 +177,8 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
                 allMacs = liveDevices.keys.toSet(),
                 rssiMap = rssiMap,
                 valuesMap = valuesMap,
-                bleCount = all.count { it.transport == Transport.BLE },
-                classicCount = all.count { it.transport == Transport.CLASSIC },
+                bleCount = all.count { it.transport.includesBle },
+                classicCount = all.count { it.transport.includesClassic },
             )
         }
     }

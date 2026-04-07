@@ -17,8 +17,8 @@ object NotificationHelper {
 
     fun notifyDevice(context: Context, device: DeviceEntity, values: String?) {
         val title = when (device.category) {
-            DeviceCategory.SENSOR -> "Neuer Sensor: ${device.model ?: device.name ?: device.mac}"
-            DeviceCategory.DEVICE -> "${device.model ?: device.name ?: device.mac} regelmäßig in der Nähe"
+            DeviceCategory.SENSOR -> "Neuer Sensor: ${device.displayName}"
+            DeviceCategory.DEVICE -> "${device.displayName} regelmäßig in der Nähe"
             DeviceCategory.MYSTERY -> "Unbekanntes Gerät ${device.mac} regelmäßig in der Nähe"
             DeviceCategory.ONCE -> return // no notification for ONCE
         }
@@ -58,11 +58,11 @@ object NotificationHelper {
         }
     }
 
-    fun notifyScanSummary(context: Context, total: Int, sensors: Int, newCount: Int) {
+    fun notifyScanSummary(context: Context, summary: String) {
         val notification = NotificationCompat.Builder(context, App.CHANNEL_SUMMARY)
             .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
             .setContentTitle("Scan abgeschlossen")
-            .setContentText("$total Geräte, $sensors Sensoren, $newCount neu")
+            .setContentText(summary)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setAutoCancel(true)
             .build()

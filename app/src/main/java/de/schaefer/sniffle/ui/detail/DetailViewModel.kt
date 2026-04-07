@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import de.schaefer.sniffle.App
 import de.schaefer.sniffle.data.DeviceEntity
 import de.schaefer.sniffle.data.SightingEntity
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -17,6 +18,7 @@ data class DetailState(
     val deleted: Boolean = false,
 )
 
+@OptIn(FlowPreview::class)
 class DetailViewModel(
     application: Application,
     savedStateHandle: SavedStateHandle,
@@ -29,16 +31,17 @@ class DetailViewModel(
     val state: StateFlow<DetailState> = _state
 
     private var noteInitialized = false
+    private val pendingNote = MutableStateFlow<String?>(null)
 
     init {
         viewModelScope.launch {
-            dao.observeSightings(mac).collect { sightings ->
-                val device = dao.getDevice(mac)
+            combine(dao.observeDevice(mac), dao.observeSightings(mac)) { device, sightings ->
+                device to sightings
+            }.collect { (device, sightings) ->
                 _state.update { old ->
                     old.copy(
                         device = device,
                         sightings = sightings,
-                        // Only set note from DB on first load, never overwrite user input
                         note = if (!noteInitialized) {
                             noteInitialized = true
                             device?.note ?: ""
@@ -49,13 +52,16 @@ class DetailViewModel(
                 }
             }
         }
+        viewModelScope.launch {
+            pendingNote.filterNotNull().debounce(500).collect { note ->
+                dao.updateNote(mac, note.ifBlank { null })
+            }
+        }
     }
 
     fun updateNote(note: String) {
         _state.update { it.copy(note = note) }
-        viewModelScope.launch {
-            dao.updateNote(mac, note.ifBlank { null })
-        }
+        pendingNote.value = note
     }
 
     fun delete() {

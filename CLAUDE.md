@@ -54,12 +54,13 @@ app/src/main/
 │   ├── jni_bridge.cpp          # 3 JNI-Funktionen: decodeBLE, getProperties, getAttribute
 │   └── decoder/                # Git submodule: theengs/decoder (inkl. ArduinoJson)
 ├── java/de/schaefer/sniffle/
-│   ├── App.kt                  # Application, NotificationChannels, Room DB init
+│   ├── App.kt                  # Application, NotificationChannels, Room DB init, isScanning-Flag, Worker-Scheduling
 │   ├── MainActivity.kt         # Single Activity, Compose setContent
 │   ├── ble/
-│   │   ├── BleScanner.kt       # BluetoothLeScanner → Flow<ParsedAdvert>
+│   │   ├── BleScanner.kt       # BluetoothLeScanner → Flow<ParsedAdvert>, Auto-Restart alle 25min
 │   │   ├── ClassicScanner.kt   # BluetoothAdapter.startDiscovery → Flow<ClassicDevice>
 │   │   ├── AdvertParser.kt     # ScanResult → ParsedAdvert (inkl. TheengsDecoder JSON)
+│   │   ├── ScanProcessor.kt    # Zentrale Scan-Pipeline: Decode→Classify→Persist→Promote, DB-Throttle 30s
 │   │   └── TheengsDecoder.kt   # JNI-Wrapper (object, loadLibrary "sniffle")
 │   ├── decoder/
 │   │   ├── DecoderChain.kt     # Interface Decoder, DecoderChain, TheengsDecoderAdapter
@@ -73,13 +74,12 @@ app/src/main/
 │   │   ├── ServiceUuidResolver.kt  # BLE Service UUID → Beschreibung
 │   │   └── AppearanceResolver.kt   # BLE Appearance Code → Label (deutsch)
 │   ├── data/
-│   │   ├── AppDatabase.kt      # Room DB "sniffle.db"
-│   │   ├── DeviceEntity.kt     # PK=mac, category, transport, note, notified
-│   │   ├── SightingEntity.kt   # FK=mac, timestamp, lat/lon, rssi, decodedValues (JSON)
-│   │   └── DeviceDao.kt        # Queries inkl. countDistinctDays, deleteStaleOnce
+│   │   ├── AppDatabase.kt      # Room DB "sniffle.db", Version 4, destructive Migration
+│   │   ├── DeviceEntity.kt     # PK=mac, category, transport, classicName, modelId, firstSeenMs, latestSeenMs, note, notified
+│   │   ├── SightingEntity.kt   # FK=mac, timestamp, lat/lon, rssi, decodedValues (JSON), Cascade-Delete
+│   │   └── DeviceDao.kt        # Queries inkl. countDistinctDays (localtime), deleteStaleOnce, observeLatestGeoSightings, observeAllGeoSightings
 │   ├── background/
-│   │   ├── ScanWorker.kt       # WorkManager PeriodicWork → startet ScanService
-│   │   ├── ScanService.kt      # ForegroundService: BLE+BT scan, GPS, persist, notify
+│   │   ├── ScanWorker.kt       # WorkManager PeriodicWork, scannt direkt (kein separater Service), überspringt wenn App aktiv
 │   │   └── NotificationHelper.kt  # 3 Channels: devices, summary, service
 │   └── ui/
 │       ├── theme/Theme.kt      # Material3 Dynamic Colors, System Dark/Light
@@ -87,21 +87,24 @@ app/src/main/
 │       ├── onboarding/OnboardingScreen.kt  # 4-Step Permission Flow (deutsch)
 │       ├── scan/
 │       │   ├── LiveScreen.kt       # Echtzeit-Liste, 4 Kategorien, RSSI-Bars
-│       │   └── LiveViewModel.kt    # Scan→Decode→Classify→Persist→Promote Pipeline
+│       │   └── LiveViewModel.kt    # Startet BLE/Classic-Scan, nutzt ScanProcessor, Location-Tracking
 │       ├── history/
 │       │   ├── HistoryScreen.kt    # Alle Funde, gleiche Kategorien
 │       │   └── HistoryViewModel.kt
 │       ├── detail/
-│       │   ├── DetailScreen.kt     # Mini-Karte, Notiz, Werte-Verlauf, Sichtungen, Löschen
-│       │   └── DetailViewModel.kt
+│       │   ├── DetailScreen.kt     # Mini-Karte (klickbar→Fullscreen), Notiz, RSSI-Trend (Vico), Sichtungsliste, Löschen
+│       │   ├── DetailMapScreen.kt  # Fullscreen-Karte für ein Gerät, alle Sightings, Alle/Letzte Toggle
+│       │   └── DetailViewModel.kt  # Lädt Device + Sightings, Note-Persistenz
 │       ├── map/
-│       │   ├── MapScreen.kt        # osmdroid Vollbild-Karte mit Markern
-│       │   └── MapViewModel.kt
+│       │   ├── ClusterMap.kt       # Shared Composable: RadiusMarkerClusterer, InfoWindows, Dot-Marker, FAB
+│       │   └── MapScreen.kt        # Vollbild-Karte aller Geräte, Alle/Letzte Toggle, Clustering
 │       └── settings/
-│           └── SettingsScreen.kt   # BG-Scan Toggle, Intervall, Dauer, BLE/BT, Notifications
+│           └── SettingsScreen.kt   # BG-Scan Toggle, Intervall, Dauer, BLE/BT, Notifications, Batterie-Hinweis, Scan-Summary
 ├── assets/
 │   └── oui.csv                 # 38962 OUI-Einträge (MAC→Hersteller)
 └── res/
+    ├── drawable/                # Adaptive Icon Foreground/Background (XML)
+    ├── mipmap-anydpi-v26/      # Adaptive Icon Launcher
     └── values/strings.xml      # Deutsche Strings
 ```
 
@@ -111,21 +114,19 @@ app/src/main/
 - Room (SQLite, KSP)
 - WorkManager (Hintergrund-Scan)
 - Google Play Services Location (GPS)
-- osmdroid (OpenStreetMap Karte)
-- Vico (Charts — eingebunden aber noch nicht voll genutzt, aktuell Text-basierter Verlauf)
+- osmdroid + osmbonuspack (OpenStreetMap Karte, Marker-Clustering)
+- Vico (Charts — RSSI-Trend im DetailScreen)
 - kotlinx-serialization-json
 - NDK 27 + CMake 3.22 (für TheengsDecoder C++)
 
 ## Bekannte offene Punkte
 
 - App wurde noch nie auf einem echten Gerät getestet
-- Vico-Charts sind eingebunden aber DetailScreen nutzt noch Text-basierten Verlauf statt echte Graphen
 - Sensor-Werte-Labels kommen noch roh aus dem Decoder (z.B. "tempc" statt "Temperatur")
-- Kein App-Icon gesetzt (nutzt Android-Default)
 - Kein Export (CSV/JSON) implementiert
 - Die Deprecation-Warning in ClassicScanner.kt (getParcelableExtra) ist harmlos aber sollte irgendwann gefixt werden
 - SettingsScreen: Chips für Intervall/Dauer könnten auf kleinen Screens umbrechen — Layout evtl. anpassen
-- MapScreen: Center ist hardcoded auf Mitteleuropa (48.2, 11.8) — sollte auf letzte bekannte Position setzen
+- ClusterMap: Fittet initial auf alle Punkte (Marker + eigene Location). Ohne Punkte: Karte zeigt Weltansicht
 - Onboarding: Background Location Permission wird auf manchen Android-Versionen nicht direkt im Dialog angeboten, User muss manuell in Einstellungen gehen
 
 ## Entscheidungen & Kontext
@@ -134,8 +135,15 @@ app/src/main/
 - **TheengsDecoder via JNI** statt Kotlin-Reimplementation — weil die C++-Library 120+ Geräte unterstützt
 - **BTHome zusätzlich nativ** — weil offener Standard, einfach zu parsen, und Theengs kennt nicht alle BTHome-Geräte
 - **Room statt Realm/ObjectBox** — Standard, gut genug für 500k rows/year
-- **osmdroid statt Google Maps** — kein API-Key nötig, kostenlos, OpenStreetMap
-- **WorkManager + ForegroundService** — zuverlässigster Ansatz für periodische BLE-Scans im Hintergrund auf Android 12+
+- **osmdroid + osmbonuspack statt Google Maps** — kein API-Key nötig, kostenlos, OpenStreetMap, RadiusMarkerClusterer
+- **WorkManager direkt (kein separater Service)** — Worker scannt selbst mit ForegroundInfo, überspringt wenn App aktiv (isScanning-Flag)
 - **Alle Geräte speichern** (auch namenlose Random-MACs) — weil sie sich als stabil herausstellen könnten (→ Mystery)
 - **3-Tage-Schwelle für Promotion** (nicht 2) — um zufällige Doppelsichtungen zu filtern
 - **Notifications nur 1x pro Gerät** — nie wieder, Flag in DB
+- **BLE-Scan Restart alle 25min** — Android drosselt nach 30min auf opportunistic, daher proaktiver Neustart
+- **DB-Throttle 30s pro Gerät** — ScanProcessor schreibt max alle 30s in Room, Live-UI aus In-Memory-State
+- **ScanProcessor als zentrale Pipeline** — wird sowohl von LiveViewModel als auch ScanWorker genutzt
+- **countDistinctDays mit localtime** — Tages-Zählung für Promotion basiert auf Geräte-Zeitzone, nicht UTC
+- **Alle Timestamps als Epoch-Long (ms)** — kein Text-Datumsformat in der DB, Anzeige über Formatting.kt
+- **Shared ClusterMap Composable** — wird von MapScreen, DetailScreen (MiniMap) und DetailMapScreen (Fullscreen) genutzt
+- **destructive DB-Migration** — solange App nicht produktiv, bei Schema-Änderung Version bumpen reicht

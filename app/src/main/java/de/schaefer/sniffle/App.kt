@@ -3,15 +3,27 @@ package de.schaefer.sniffle
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import de.schaefer.sniffle.background.ScanWorker
 import de.schaefer.sniffle.data.AppDatabase
+import de.schaefer.sniffle.util.Preferences
 
 class App : Application() {
 
     val database: AppDatabase by lazy { AppDatabase.create(this) }
 
+    @Volatile var isScanning = false
+
     override fun onCreate() {
         super.onCreate()
         createNotificationChannels()
+        rescheduleWorkerIfNeeded()
+    }
+
+    private fun rescheduleWorkerIfNeeded() {
+        val prefs = Preferences(this)
+        if (prefs.bgEnabled) {
+            ScanWorker.schedule(this, prefs.intervalMin)
+        }
     }
 
     private fun createNotificationChannels() {

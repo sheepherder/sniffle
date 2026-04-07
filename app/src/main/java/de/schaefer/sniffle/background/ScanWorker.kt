@@ -10,6 +10,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.ServiceInfo
 import android.location.Location
 import android.util.Log
 import androidx.core.content.getSystemService
@@ -23,9 +24,10 @@ import de.schaefer.sniffle.ble.ClassicDevice
 import de.schaefer.sniffle.ble.ClassicScanner
 import de.schaefer.sniffle.ble.ScanProcessor
 import de.schaefer.sniffle.classify.OuiLookup
+import de.schaefer.sniffle.util.Preferences
+import de.schaefer.sniffle.util.formatScanSummary
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
-import java.time.LocalDate
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 
@@ -36,14 +38,24 @@ class ScanWorker(
 
     @SuppressLint("MissingPermission")
     override suspend fun doWork(): Result {
-        val prefs = de.schaefer.sniffle.util.Preferences(applicationContext)
+        // Skip if LiveScreen is already scanning
+        if ((applicationContext as App).isScanning) {
+            Log.i("ScanWorker", "Skipping — app is in foreground")
+            return Result.success()
+        }
+
+        val prefs = Preferences(applicationContext)
         val durationMs = prefs.scanDurationMs
         val bleScan = prefs.bleScan
         val classicScan = prefs.classicScan
         val showSummary = prefs.scanSummary
 
         // Show foreground notification
-        setForeground(ForegroundInfo(1, NotificationHelper.serviceNotification(applicationContext)))
+        setForeground(ForegroundInfo(
+            1,
+            NotificationHelper.serviceNotification(applicationContext),
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION,
+        ))
 
         val dao = (applicationContext as App).database.deviceDao()
         OuiLookup.init(applicationContext)
@@ -57,8 +69,9 @@ class ScanWorker(
         val bleChannel = Channel<ScanResult>(Channel.UNLIMITED)
         val classicChannel = Channel<ClassicDevice>(Channel.UNLIMITED)
 
-        // Consumer coroutines (run in current scope via coroutineScope)
-        val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+        // Single-threaded dispatcher so ScanProcessor maps are accessed serially
+        val processingDispatcher = Dispatchers.IO.limitedParallelism(1)
+        val scope = CoroutineScope(processingDispatcher + SupervisorJob())
         val bleConsumer = scope.launch {
             for (result in bleChannel) processor.processBle(AdvertParser.parse(result))
         }
@@ -128,20 +141,19 @@ class ScanWorker(
         // Wait for processing to finish
         bleConsumer.join()
         classicConsumer.join()
-        processor.flush()
 
         // Cleanup
-        dao.deleteStaleOnce(LocalDate.now().minusDays(90).toString())
+        dao.deleteStaleOnce(System.currentTimeMillis() - 90L * 24 * 60 * 60 * 1000)
 
-        Log.i("ScanWorker", "Scan done: ${processor.totalCount.get()} devices, ${processor.sensorCount.get()} sensors, ${processor.newDeviceCount.get()} new")
+        val summary = formatScanSummary(
+            processor.uniqueCount, processor.sensorCount.get(), processor.newDeviceCount.get(),
+        )
+        Log.i("ScanWorker", "Scan done: $summary")
+        prefs.lastBgScanMs = System.currentTimeMillis()
+        prefs.lastBgScanSummary = summary
 
         if (showSummary) {
-            NotificationHelper.notifyScanSummary(
-                applicationContext,
-                processor.totalCount.get(),
-                processor.sensorCount.get(),
-                processor.newDeviceCount.get(),
-            )
+            NotificationHelper.notifyScanSummary(applicationContext, summary)
         }
 
         return Result.success()
@@ -149,9 +161,11 @@ class ScanWorker(
 
     @SuppressLint("MissingPermission")
     private suspend fun getLocation(): Location? = suspendCancellableCoroutine { cont ->
+        val cts = CancellationTokenSource()
+        cont.invokeOnCancellation { cts.cancel() }
         try {
             LocationServices.getFusedLocationProviderClient(applicationContext)
-                .getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, CancellationTokenSource().token)
+                .getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, cts.token)
                 .addOnSuccessListener { cont.resume(it) }
                 .addOnFailureListener { cont.resume(null) }
         } catch (_: Exception) {

@@ -5,30 +5,40 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
+import com.patrykandpatrick.vico.compose.cartesian.axis.rememberStart
+import com.patrykandpatrick.vico.compose.cartesian.axis.rememberBottom
+import com.patrykandpatrick.vico.compose.cartesian.layer.rememberLineCartesianLayer
+import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
+import com.patrykandpatrick.vico.core.cartesian.axis.HorizontalAxis
+import com.patrykandpatrick.vico.core.cartesian.axis.VerticalAxis
+import com.patrykandpatrick.vico.core.cartesian.data.CartesianChartModelProducer
+import com.patrykandpatrick.vico.core.cartesian.data.CartesianLayerRangeProvider
+import com.patrykandpatrick.vico.core.cartesian.data.CartesianValueFormatter
+import com.patrykandpatrick.vico.core.cartesian.data.lineSeries
+import com.patrykandpatrick.vico.core.common.data.ExtraStore
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import de.schaefer.sniffle.data.DeviceCategory
 import de.schaefer.sniffle.data.SightingEntity
+import de.schaefer.sniffle.data.Transport
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory
-import org.osmdroid.util.BoundingBox
-import org.osmdroid.util.GeoPoint
-import org.osmdroid.views.MapView
-import org.osmdroid.views.overlay.Marker
-import de.schaefer.sniffle.util.formatTimestamp
+import de.schaefer.sniffle.ui.map.ClusterMap
 import de.schaefer.sniffle.util.formatTimestampLong
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -36,6 +46,7 @@ import de.schaefer.sniffle.util.formatTimestampLong
 fun DetailScreen(
     mac: String,
     onBack: () -> Unit,
+    onOpenMap: () -> Unit = {},
     viewModel: DetailViewModel = viewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -49,7 +60,7 @@ fun DetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(device?.model ?: device?.name ?: mac, maxLines = 1) },
+                title = { Text(device?.displayName ?: mac, maxLines = 1) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Zurück")
@@ -71,27 +82,56 @@ fun DetailScreen(
                 .padding(padding),
             contentPadding = PaddingValues(bottom = 32.dp)
         ) {
-            // Mini map
+            // Mini map — tap opens fullscreen
             val geoSightings = state.sightings.filter { it.latitude != null && it.longitude != null }
             if (geoSightings.isNotEmpty()) {
                 item {
-                    MiniMap(
-                        sightings = geoSightings,
+                    val miniMarkers = remember(geoSightings, device?.category) {
+                        geoSightings.mapNotNull { it.toClusterMarker(device?.category) }
+                    }
+                    Card(
+                        onClick = onOpenMap,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(200.dp)
                             .padding(16.dp)
-                    )
+                    ) {
+                        ClusterMap(
+                            markers = miniMarkers,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
                 }
             }
 
             // Note field
             item {
+                var showSaved by remember { mutableStateOf(false) }
+                var editCount by remember { mutableIntStateOf(0) }
+
+                LaunchedEffect(editCount) {
+                    if (editCount > 0) {
+                        showSaved = true
+                        delay(2000)
+                        showSaved = false
+                    }
+                }
+
                 OutlinedTextField(
                     value = state.note,
-                    onValueChange = { viewModel.updateNote(it) },
+                    onValueChange = { viewModel.updateNote(it); editCount++ },
                     label = { Text("Notiz") },
                     placeholder = { Text("z.B. Geberit im Café Stadtpark") },
+                    supportingText = {
+                        if (showSaved) {
+                            Text("Gespeichert", color = MaterialTheme.colorScheme.primary)
+                        } else {
+                            Text("Wird automatisch gespeichert")
+                        }
+                    },
+                    trailingIcon = if (showSaved) {
+                        { Icon(Icons.Default.Check, "Gespeichert", tint = MaterialTheme.colorScheme.primary) }
+                    } else null,
                     singleLine = true,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -138,49 +178,6 @@ fun DetailScreen(
 }
 
 @Composable
-private fun MiniMap(sightings: List<SightingEntity>, modifier: Modifier) {
-    val points = sightings.mapNotNull { s ->
-        if (s.latitude != null && s.longitude != null) GeoPoint(s.latitude, s.longitude)
-        else null
-    }.distinctBy { "${it.latitude.toInt()},${it.longitude.toInt()}" }
-
-    Card(modifier = modifier) {
-        AndroidView(
-            factory = { ctx ->
-                MapView(ctx).apply {
-                    setTileSource(TileSourceFactory.MAPNIK)
-                    setMultiTouchControls(true)
-                    controller.setZoom(15.0)
-                    if (points.isNotEmpty()) {
-                        controller.setCenter(points.last())
-                    }
-                }
-            },
-            update = { map ->
-                map.overlays.clear()
-                for (point in points) {
-                    val marker = Marker(map)
-                    marker.position = point
-                    marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                    map.overlays.add(marker)
-                }
-                if (points.size > 1) {
-                    val lats = points.map { it.latitude }
-                    val lons = points.map { it.longitude }
-                    map.zoomToBoundingBox(
-                        BoundingBox(
-                            lats.max(), lons.max(), lats.min(), lons.min()
-                        ),
-                        true, 50
-                    )
-                }
-                map.invalidate()
-            }
-        )
-    }
-}
-
-@Composable
 private fun DeviceInfo(device: de.schaefer.sniffle.data.DeviceEntity?, mac: String) {
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
         Text("Geräteinfo", style = MaterialTheme.typography.titleMedium)
@@ -196,14 +193,27 @@ private fun DeviceInfo(device: de.schaefer.sniffle.data.DeviceEntity?, mac: Stri
 
         InfoRow("Kategorie", categoryLabel)
         InfoRow("MAC", mac)
+        if (device?.name != null && device.classicName != null && device.name != device.classicName) {
+            InfoRow("Name (BLE)", device.name)
+            InfoRow("Name (BT)", device.classicName)
+        } else {
+            (device?.name ?: device?.classicName)?.let { InfoRow("Name", it) }
+        }
         device?.brand?.let { InfoRow("Hersteller", it) }
         device?.model?.let { InfoRow("Modell", it) }
         device?.company?.let { InfoRow("Firma (OUI)", it) }
         device?.appearance?.let { InfoRow("Appearance", it) }
         device?.deviceType?.let { InfoRow("Typ", it) }
-        device?.transport?.let { InfoRow("Transport", it.name) }
-        device?.firstSeenDate?.let { InfoRow("Erstmals", it) }
-        device?.latestSeenDate?.let { InfoRow("Zuletzt", it) }
+        device?.transport?.let {
+            val label = when (it) {
+                Transport.BLE -> "BLE"
+                Transport.CLASSIC -> "Classic BT"
+                Transport.BOTH -> "BLE + Classic BT"
+            }
+            InfoRow("Transport", label)
+        }
+        if (device != null && device.firstSeenMs != 0L) InfoRow("Erstmals", formatTimestampLong(device.firstSeenMs))
+        if (device != null && device.latestSeenMs != 0L) InfoRow("Zuletzt", formatTimestampLong(device.latestSeenMs))
         device?.modelId?.let { InfoRow("Model ID", it) }
     }
 }
@@ -223,34 +233,75 @@ private fun InfoRow(label: String, value: String) {
 
 @Composable
 private fun SensorChart(sightings: List<SightingEntity>) {
-    // Parse first sighting to get available keys
-    val firstValues = parseValues(sightings.first().decodedValues)
-    if (firstValues.isEmpty()) return
+    val allParsed = remember(sightings) {
+        sightings.take(50).reversed().map { it.timestamp to parseValues(it.decodedValues) }
+            .filter { it.second.isNotEmpty() }
+    }
+    if (allParsed.isEmpty()) return
+
+    // Collect all numeric keys across sightings
+    val keys = remember(allParsed) {
+        val seen = linkedSetOf<String>()
+        for ((_, vals) in allParsed) {
+            for ((k, v) in vals) {
+                if (v.toDoubleOrNull() != null) seen.add(k)
+            }
+        }
+        seen.toList().take(4)
+    }
+    if (keys.isEmpty()) return
 
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
         Text("Werte-Verlauf", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(8.dp))
 
-        // Simple text-based chart for now — Vico integration in a later pass
-        val recentSightings = sightings.take(20).reversed()
+        val timeFormat = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
+        val fitDataRange = remember {
+            object : CartesianLayerRangeProvider {
+                override fun getMinY(minY: Double, maxY: Double, extraStore: ExtraStore) =
+                    if (minY == maxY) minY - 1 else minY
+                override fun getMaxY(minY: Double, maxY: Double, extraStore: ExtraStore) =
+                    if (minY == maxY) maxY + 1 else maxY
+            }
+        }
 
-        for (key in firstValues.keys.take(4)) {
+        for (key in keys) {
+            val points = remember(allParsed, key) {
+                allParsed.mapNotNull { (ts, vals) ->
+                    vals[key]?.toDoubleOrNull()?.let { ts to it }
+                }
+            }
+            if (points.size < 2 || points.first().first == points.last().first) continue
+
             Text(
                 key,
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(top = 8.dp)
+                modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
             )
-            for (s in recentSightings) {
-                val vals = parseValues(s.decodedValues)
-                val v = vals[key] ?: continue
-                val time = formatTimestamp(s.timestamp)
-                Text(
-                    "$time  $v",
-                    style = MaterialTheme.typography.bodySmall,
-                    fontFamily = FontFamily.Monospace,
-                )
+
+            val modelProducer = remember(key) { CartesianChartModelProducer() }
+            LaunchedEffect(points) {
+                modelProducer.runTransaction {
+                    lineSeries { series(x = points.map { it.first.toDouble() }, y = points.map { it.second }) }
+                }
             }
+
+            val xFormatter = remember(points) {
+                CartesianValueFormatter { _, x, _ ->
+                    timeFormat.format(Date(x.toLong()))
+                }
+            }
+
+            CartesianChartHost(
+                chart = rememberCartesianChart(
+                    rememberLineCartesianLayer(rangeProvider = fitDataRange),
+                    startAxis = VerticalAxis.rememberStart(),
+                    bottomAxis = HorizontalAxis.rememberBottom(valueFormatter = xFormatter),
+                ),
+                modelProducer = modelProducer,
+                modifier = Modifier.fillMaxWidth().height(150.dp),
+            )
         }
     }
 }

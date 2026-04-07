@@ -12,3 +12,10 @@ fun formatTimestamp(ms: Long): String =
 
 fun formatTimestampLong(ms: Long): String =
     if (ms == 0L) "?" else longFormat.format(Date(ms))
+
+fun formatScanSummary(uniqueDevices: Int, sensors: Int, newPromoted: Int): String =
+    buildList {
+        add("$uniqueDevices Geräte gefunden")
+        if (sensors > 0) add("$sensors davon Sensoren")
+        if (newPromoted > 0) add("$newPromoted neu eingestuft")
+    }.joinToString(", ")

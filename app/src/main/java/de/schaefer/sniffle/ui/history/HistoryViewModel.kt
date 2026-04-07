@@ -5,6 +5,8 @@ import androidx.lifecycle.AndroidViewModel
 import de.schaefer.sniffle.App
 import de.schaefer.sniffle.data.DeviceCategory
 import de.schaefer.sniffle.data.DeviceEntity
+import de.schaefer.sniffle.data.includesBle
+import de.schaefer.sniffle.data.includesClassic
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
@@ -15,6 +17,8 @@ data class HistoryState(
     val mystery: List<DeviceEntity> = emptyList(),
     val once: List<DeviceEntity> = emptyList(),
     val onceExpanded: Boolean = false,
+    val bleCount: Int = 0,
+    val classicCount: Int = 0,
 )
 
 class HistoryViewModel(application: Application) : AndroidViewModel(application) {
@@ -29,6 +33,8 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
             mystery = devices.filter { it.category == DeviceCategory.MYSTERY }.sortedByDescending { it.latestSeenMs },
             once = devices.filter { it.category == DeviceCategory.ONCE }.sortedByDescending { it.latestSeenMs },
             onceExpanded = expanded,
+            bleCount = devices.count { it.transport.includesBle },
+            classicCount = devices.count { it.transport.includesClassic },
         )
     }
 

@@ -89,6 +89,7 @@ dependencies {
 
     // Map
     implementation(libs.osmdroid)
+    implementation(libs.osmbonuspack)
 
     // Charts
     implementation(libs.vico.compose.m3)

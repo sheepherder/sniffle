@@ -23,6 +23,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import de.schaefer.sniffle.ui.detail.DetailMapScreen
 import de.schaefer.sniffle.ui.detail.DetailScreen
 import de.schaefer.sniffle.ui.history.HistoryScreen
 import de.schaefer.sniffle.ui.map.MapScreen
@@ -113,7 +114,15 @@ fun SniffleApp() {
                 val mac = backStackEntry.arguments?.getString("mac") ?: return@composable
                 DetailScreen(
                     mac = mac,
-                    onBack = { navController.popBackStack() }
+                    onBack = { navController.popBackStack() },
+                    onOpenMap = { navController.navigate("detail/$mac/map") },
+                )
+            }
+            composable("detail/{mac}/map") { backStackEntry ->
+                val mac = backStackEntry.arguments?.getString("mac") ?: return@composable
+                DetailMapScreen(
+                    mac = mac,
+                    onBack = { navController.popBackStack() },
                 )
             }
         }

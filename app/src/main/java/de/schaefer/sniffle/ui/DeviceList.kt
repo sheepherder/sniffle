@@ -16,6 +16,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
 import de.schaefer.sniffle.data.DeviceCategory
 import de.schaefer.sniffle.data.DeviceEntity
 import de.schaefer.sniffle.data.Transport
@@ -217,8 +219,12 @@ fun DeviceRow(
                 Spacer(Modifier.width(6.dp))
             }
 
-            val title = device.model ?: device.name ?: device.mac
-            val transportTag = if (device.transport == Transport.CLASSIC) " (BT)" else ""
+            val title = device.displayName
+            val transportTag = when (device.transport) {
+                Transport.CLASSIC -> " (BT)"
+                Transport.BOTH -> " (BLE+BT)"
+                else -> ""
+            }
             Text(
                 "$title$transportTag",
                 style = MaterialTheme.typography.bodyLarge,
@@ -263,9 +269,15 @@ fun DeviceRow(
         device.note?.let {
             Text(
                 "📝 $it",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(start = if (showRssi) 72.dp else 20.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier
+                    .padding(start = if (showRssi) 72.dp else 20.dp, top = 2.dp)
+                    .background(
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                        RoundedCornerShape(4.dp)
+                    )
+                    .padding(horizontal = 8.dp, vertical = 2.dp),
             )
         }
     }
@@ -295,7 +307,7 @@ fun buildOnceSummary(devices: List<DeviceEntity>): String {
             d.brand == "Apple" || d.company == "Apple" -> "Apple"
             d.brand == "GENERIC" && d.model == "MS-CDP" -> "Microsoft"
             d.company != null -> d.company
-            d.name != null -> "benannt"
+            d.name != null || d.classicName != null -> "benannt"
             else -> "?"
         }
         groups[label] = (groups[label] ?: 0) + 1

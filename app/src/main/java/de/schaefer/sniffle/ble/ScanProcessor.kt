@@ -13,7 +13,6 @@ import de.schaefer.sniffle.decoder.DecodedDevice
 import de.schaefer.sniffle.decoder.DecoderChain
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.time.LocalDate
 import java.util.concurrent.atomic.AtomicInteger
 
 data class ProcessedDevice(
@@ -47,134 +46,155 @@ class ScanProcessor(
 ) {
     val newDeviceCount = AtomicInteger()
     val sensorCount = AtomicInteger()
-    val totalCount = AtomicInteger()
+    val uniqueCount: Int get() = knownDevices.size
 
-    private val deviceCache = mutableMapOf<String, DeviceEntity?>()
-    private val distinctDaysCache = mutableMapOf<String, Int>()
+    /** Accumulated device state per MAC — loaded from DB on first encounter, then updated in-memory. */
+    private val knownDevices = mutableMapOf<String, DeviceEntity?>()
     private val lastPersistedAt = mutableMapOf<String, Long>()
 
     suspend fun processBle(advert: ParsedAdvert): ProcessedDevice {
+        val existing = getOrLoadDevice(advert.mac)
         val decoded = DecoderChain.decode(advert)
-        val ouiVendor = OuiLookup.lookup(advert.mac)
+        val ouiVendor = if (existing?.company != null) null else OuiLookup.lookup(advert.mac)
         val company = DeviceClassifier.companyFromId(advert.manufacturerData) ?: ouiVendor
-        val appearance = AppearanceResolver.resolve(advert.appearance)
-        val serviceHints = ServiceUuidResolver.resolve(advert.serviceUuids)
-        val guessedType = DeviceClassifier.guessTypeFromName(advert.name)
-
-        val existing = cachedGetDevice(advert.mac)
+        val appearance = if (existing?.appearance != null) null else AppearanceResolver.resolve(advert.appearance)
+        val serviceHints = if (existing != null) emptyList() else ServiceUuidResolver.resolve(advert.serviceUuids)
+        val guessedType = if (existing != null) null else DeviceClassifier.guessTypeFromName(advert.name)
         val category = resolveCategory(existing?.category, advert, decoded)
-        val today = LocalDate.now().toString()
-        val now = System.currentTimeMillis()
+        val nowMs = System.currentTimeMillis()
 
-        val entity = DeviceEntity(
+        val transport = when (existing?.transport) {
+            Transport.CLASSIC, Transport.BOTH -> Transport.BOTH
+            else -> Transport.BLE
+        }
+
+        // Merged view: current scan data + previously known data (for live UI)
+        val merged = DeviceEntity(
             mac = advert.mac,
             name = advert.name ?: existing?.name,
+            classicName = existing?.classicName,
             brand = decoded?.brand ?: existing?.brand,
             model = decoded?.model ?: existing?.model,
             modelId = decoded?.modelId ?: existing?.modelId,
             deviceType = decoded?.type ?: existing?.deviceType,
-            transport = Transport.BLE,
+            transport = transport,
             category = category,
             appearance = appearance ?: existing?.appearance,
             company = company ?: existing?.company,
-            firstSeenDate = existing?.firstSeenDate ?: today,
-            latestSeenDate = today,
-            latestSeenMs = now,
+            firstSeenMs = existing?.firstSeenMs ?: nowMs,
+            latestSeenMs = nowMs,
             note = existing?.note,
             notified = existing?.notified ?: false,
         )
 
-        totalCount.incrementAndGet()
         if (decoded?.hasSensorData == true) sensorCount.incrementAndGet()
 
-        // Throttle DB writes: persist device + sighting at most every persistIntervalMs per MAC
-        val shouldPersist = shouldPersist(advert.mac, now, isNew = existing == null)
-        if (shouldPersist) {
-            dao.upsertDevice(entity)
+        var finalCategory = category
+        var wasPromoted = false
+        val isNew = existing == null
+        if (shouldPersist(advert.mac, nowMs, isNew)) {
+            persistDevice(merged, isNew)
             persistSighting(advert.mac, advert.rssi, decoded)
-            if (existing == null && category == DeviceCategory.SENSOR) newDeviceCount.incrementAndGet()
+            if (isNew && category == DeviceCategory.SENSOR) newDeviceCount.incrementAndGet()
+
+            val (promoted, did) = checkPromotion(
+                mac = advert.mac, currentCategory = category,
+                name = merged.name ?: merged.classicName, ouiVendor = ouiVendor, company = company,
+                appearance = appearance, serviceHints = serviceHints, deviceClassName = null,
+            )
+            finalCategory = promoted
+            wasPromoted = did
         }
 
-        // Always update in-memory cache
-        deviceCache[advert.mac] = entity
-
-        val (finalCategory, wasPromoted) = checkPromotion(
-            mac = advert.mac, currentCategory = category,
-            name = entity.name, ouiVendor = ouiVendor, company = company,
-            appearance = appearance, serviceHints = serviceHints, deviceClassName = null,
-        )
-        if (wasPromoted) {
-            deviceCache[advert.mac] = entity.copy(category = finalCategory)
-        }
+        knownDevices[advert.mac] = if (wasPromoted) merged.copy(category = finalCategory) else merged
 
         return ProcessedDevice(
-            mac = advert.mac, name = entity.name, rssi = advert.rssi,
-            category = finalCategory, brand = entity.brand, model = entity.model,
-            type = entity.deviceType, values = decoded?.values ?: emptyMap(),
-            company = entity.company, appearance = entity.appearance,
-            serviceHints = serviceHints, transport = Transport.BLE,
+            mac = advert.mac, name = merged.name ?: merged.classicName, rssi = advert.rssi,
+            category = finalCategory, brand = merged.brand, model = merged.model,
+            type = merged.deviceType, values = decoded?.values ?: emptyMap(),
+            company = merged.company, appearance = merged.appearance,
+            serviceHints = serviceHints, transport = transport,
             guessedType = guessedType, wasPromoted = wasPromoted,
         )
     }
 
     suspend fun processClassic(device: ClassicDevice): ProcessedDevice {
-        val existing = cachedGetDevice(device.mac)
+        val existing = getOrLoadDevice(device.mac)
         val category = existing?.category ?: DeviceCategory.ONCE
-        val today = LocalDate.now().toString()
-        val now = System.currentTimeMillis()
+        val nowMs = System.currentTimeMillis()
         val company = OuiLookup.lookup(device.mac)
         val className = device.deviceClassName
 
-        val entity = DeviceEntity(
+        val transport = when (existing?.transport) {
+            Transport.BLE, Transport.BOTH -> Transport.BOTH
+            else -> Transport.CLASSIC
+        }
+
+        val merged = DeviceEntity(
             mac = device.mac,
-            name = device.name ?: existing?.name,
+            name = existing?.name,
+            classicName = device.name ?: existing?.classicName,
+            brand = existing?.brand,
             model = className ?: existing?.model,
+            modelId = existing?.modelId,
             deviceType = existing?.deviceType,
-            transport = Transport.CLASSIC,
+            transport = transport,
             category = category,
             appearance = className,
             company = company,
-            firstSeenDate = existing?.firstSeenDate ?: today,
-            latestSeenDate = today,
-            latestSeenMs = now,
+            firstSeenMs = existing?.firstSeenMs ?: nowMs,
+            latestSeenMs = nowMs,
             note = existing?.note,
             notified = existing?.notified ?: false,
         )
 
-        totalCount.incrementAndGet()
 
-        val shouldPersist = shouldPersist(device.mac, now, isNew = existing == null)
-        if (shouldPersist) {
-            dao.upsertDevice(entity)
+        var finalCategory = category
+        var wasPromoted = false
+        val isNew = existing == null
+        if (shouldPersist(device.mac, nowMs, isNew)) {
+            persistDevice(merged, isNew)
             persistSighting(device.mac, device.rssi, null)
+
+            val (promoted, did) = checkPromotion(
+                mac = device.mac, currentCategory = category,
+                name = merged.name ?: merged.classicName, ouiVendor = company, company = null,
+                appearance = className, serviceHints = emptyList(), deviceClassName = className,
+            )
+            finalCategory = promoted
+            wasPromoted = did
         }
 
-        deviceCache[device.mac] = entity
-
-        val (finalCategory, wasPromoted) = checkPromotion(
-            mac = device.mac, currentCategory = category,
-            name = device.name, ouiVendor = company, company = null,
-            appearance = className, serviceHints = emptyList(), deviceClassName = className,
-        )
-        if (wasPromoted) {
-            deviceCache[device.mac] = entity.copy(category = finalCategory)
-        }
+        knownDevices[device.mac] = if (wasPromoted) merged.copy(category = finalCategory) else merged
 
         return ProcessedDevice(
-            mac = device.mac, name = entity.name, rssi = device.rssi,
-            category = finalCategory, brand = null, model = className,
-            type = null, values = emptyMap(), company = company,
+            mac = device.mac, name = merged.name ?: merged.classicName, rssi = device.rssi,
+            category = finalCategory, brand = merged.brand, model = merged.model,
+            type = merged.deviceType, values = emptyMap(), company = company,
             appearance = className, serviceHints = emptyList(),
-            transport = Transport.CLASSIC,
+            transport = transport,
             guessedType = DeviceClassifier.guessTypeFromName(device.name),
             wasPromoted = wasPromoted,
         )
     }
 
-    /** Flush all pending devices to DB. Call at end of scan session. */
-    suspend fun flush() {
-        for ((mac, entity) in deviceCache) {
-            if (entity != null) dao.upsertDevice(entity)
+    private suspend fun persistDevice(entity: DeviceEntity, isNew: Boolean) {
+        if (isNew) {
+            val inserted = dao.insertDevice(entity)
+            if (inserted != -1L) return
+            // Race: another thread inserted first → fall through to update
+        }
+        val updated = dao.updateFromScan(
+            mac = entity.mac, name = entity.name, classicName = entity.classicName,
+            brand = entity.brand, model = entity.model, modelId = entity.modelId,
+            deviceType = entity.deviceType, transport = entity.transport,
+            category = entity.category, appearance = entity.appearance,
+            company = entity.company,
+            latestSeenMs = entity.latestSeenMs,
+        )
+        if (updated == 0) {
+            // Device was deleted while scanning — re-insert
+            dao.insertDevice(entity)
         }
     }
 
@@ -191,8 +211,8 @@ class ScanProcessor(
         return false
     }
 
-    private suspend fun cachedGetDevice(mac: String): DeviceEntity? =
-        deviceCache.getOrPut(mac) { dao.getDevice(mac) }
+    private suspend fun getOrLoadDevice(mac: String): DeviceEntity? =
+        knownDevices.getOrPut(mac) { dao.getDevice(mac) }
 
     private suspend fun checkPromotion(
         mac: String, currentCategory: DeviceCategory,
@@ -200,8 +220,8 @@ class ScanProcessor(
         appearance: String?, serviceHints: List<String>, deviceClassName: String?,
     ): Pair<DeviceCategory, Boolean> {
         if (currentCategory != DeviceCategory.ONCE) return currentCategory to false
-        val days = distinctDaysCache.getOrPut(mac) { dao.countDistinctDays(mac) }
-        if (days < 3) return DeviceCategory.ONCE to false
+        val days = dao.countDistinctDays(mac)
+        if (days < 2) return DeviceCategory.ONCE to false  // TODO: back to 3 after testing
 
         val hasId = DeviceClassifier.hasIdentity(name, ouiVendor, appearance, serviceHints, company, deviceClassName)
         val promoted = DeviceClassifier.promotedCategory(hasId)

@@ -40,6 +40,14 @@ class Preferences(context: Context) {
         get() = prefs.getBoolean(KEY_ONBOARDING_DONE, false)
         set(v) = prefs.edit { putBoolean(KEY_ONBOARDING_DONE, v) }
 
+    var lastBgScanMs: Long
+        get() = prefs.getLong(KEY_LAST_BG_SCAN, 0L)
+        set(v) = prefs.edit { putLong(KEY_LAST_BG_SCAN, v) }
+
+    var lastBgScanSummary: String?
+        get() = prefs.getString(KEY_LAST_BG_SCAN_SUMMARY, null)
+        set(v) = prefs.edit { putString(KEY_LAST_BG_SCAN_SUMMARY, v) }
+
     companion object {
         private const val KEY_BLE_SCAN = "ble_scan"
         private const val KEY_CLASSIC_SCAN = "classic_scan"
@@ -49,5 +57,7 @@ class Preferences(context: Context) {
         private const val KEY_NOTIFICATIONS = "notifications"
         private const val KEY_SCAN_SUMMARY = "scan_summary"
         private const val KEY_ONBOARDING_DONE = "onboarding_done"
+        private const val KEY_LAST_BG_SCAN = "last_bg_scan_ms"
+        private const val KEY_LAST_BG_SCAN_SUMMARY = "last_bg_scan_summary"
     }
 }

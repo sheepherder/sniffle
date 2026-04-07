@@ -22,7 +22,11 @@ fun HistoryScreen(
     val state by viewModel.state.collectAsStateWithLifecycle(HistoryState())
 
     val total = state.sensors.size + state.devices.size + state.mystery.size + state.once.size
-    val status = statusLine ?: "${total} Geräte gespeichert"
+    val status = statusLine ?: buildList {
+        if (state.bleCount > 0) add("BLE: ${state.bleCount}")
+        if (state.classicCount > 0) add("BT: ${state.classicCount}")
+        add("${total} gesamt")
+    }.joinToString("  •  ")
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
