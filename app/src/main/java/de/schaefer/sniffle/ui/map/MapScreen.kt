@@ -12,7 +12,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -24,12 +23,9 @@ import com.google.android.gms.tasks.CancellationTokenSource
 import de.schaefer.sniffle.App
 import de.schaefer.sniffle.data.DeviceCategory
 import de.schaefer.sniffle.data.SightingEntity
+import de.schaefer.sniffle.ui.CATEGORIES
 import de.schaefer.sniffle.ui.DeviceColor
-import de.schaefer.sniffle.ui.MysteryColor
-import de.schaefer.sniffle.ui.OnceColor
-import de.schaefer.sniffle.ui.SensorColor
 import kotlinx.coroutines.flow.*
-import org.osmdroid.config.Configuration
 import org.osmdroid.util.GeoPoint
 
 class FullMapViewModel(application: Application) : AndroidViewModel(application) {
@@ -100,10 +96,8 @@ fun MapScreen(
     val showAll by viewModel.showAll.collectAsStateWithLifecycle()
     val markers by viewModel.markers.collectAsStateWithLifecycle(emptyList())
     val currentLocation by viewModel.currentLocation.collectAsStateWithLifecycle()
-    val context = LocalContext.current
 
     LaunchedEffect(Unit) {
-        Configuration.getInstance().userAgentValue = context.packageName
         viewModel.refreshLocation()
     }
 
@@ -133,9 +127,5 @@ fun MapScreen(
     }
 }
 
-internal fun categoryColor(category: DeviceCategory): Int = when (category) {
-    DeviceCategory.SENSOR -> SensorColor.toArgb()
-    DeviceCategory.DEVICE -> DeviceColor.toArgb()
-    DeviceCategory.MYSTERY -> MysteryColor.toArgb()
-    DeviceCategory.ONCE -> OnceColor.toArgb()
-}
+internal fun categoryColor(category: DeviceCategory): Int =
+    CATEGORIES[category]?.color?.toArgb() ?: DeviceColor.toArgb()

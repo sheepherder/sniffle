@@ -144,7 +144,7 @@ fun DetailScreen(
                 DeviceInfo(device, mac)
             }
 
-            // Sensor chart placeholder
+            // Sensor chart
             val sensorSightings = state.sightings.filter { !it.decodedValues.isNullOrEmpty() }
             if (sensorSightings.isNotEmpty()) {
                 item {

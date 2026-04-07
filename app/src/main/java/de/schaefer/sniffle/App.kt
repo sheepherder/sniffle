@@ -15,6 +15,7 @@ class App : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        org.osmdroid.config.Configuration.getInstance().userAgentValue = packageName
         createNotificationChannels()
         rescheduleWorkerIfNeeded()
     }

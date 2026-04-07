@@ -245,10 +245,14 @@ class ScanProcessor(
         val valuesJson = decoded?.values?.takeIf { it.isNotEmpty() }?.let { vals ->
             try { Json.encodeToString(vals.mapValues { it.value.toString() }) } catch (_: Exception) { null }
         }
-        dao.insertSighting(SightingEntity(
-            mac = mac, timestamp = System.currentTimeMillis(),
-            latitude = latitude, longitude = longitude,
-            rssi = rssi, decodedValues = valuesJson,
-        ))
+        try {
+            dao.insertSighting(SightingEntity(
+                mac = mac, timestamp = System.currentTimeMillis(),
+                latitude = latitude, longitude = longitude,
+                rssi = rssi, decodedValues = valuesJson,
+            ))
+        } catch (_: android.database.sqlite.SQLiteConstraintException) {
+            // Device not yet in DB (race condition) — skip this sighting
+        }
     }
 }

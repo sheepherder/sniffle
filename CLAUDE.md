@@ -146,4 +146,6 @@ app/src/main/
 - **countDistinctDays mit localtime** — Tages-Zählung für Promotion basiert auf Geräte-Zeitzone, nicht UTC
 - **Alle Timestamps als Epoch-Long (ms)** — kein Text-Datumsformat in der DB, Anzeige über Formatting.kt
 - **Shared ClusterMap Composable** — wird von MapScreen, DetailScreen (MiniMap) und DetailMapScreen (Fullscreen) genutzt
+- **ClusterMap: LaunchedEffect statt AndroidView update** — update-Lambda wird bei jeder Recomposition aufgerufen und zerstört Tiles. Marker-Updates daher via LaunchedEffect(markers, myLocation, mapView)
+- **osmdroid zoomToBoundingBox erst nach Layout** — ohne map.width/height > 0 geht Projection.getCloserPixel in Endlosschleife (ANR). Retry-Loop mit 50ms Intervall statt blindem Delay
 - **destructive DB-Migration** — solange App nicht produktiv, bei Schema-Änderung Version bumpen reicht
