@@ -32,26 +32,18 @@ object FmdnDecoder : Decoder {
 
         val isUtp = frameType == 0x41
 
-        // Determine curve type and extract flags
+        // Hashed flags: XOR of last EID byte and flags byte
+        // P-256: EID bytes 1-32, flags at 33. P-160: EID bytes 1-20, flags at 21.
+        val flagsIndex = if (data.size >= 34) 33 else if (data.size >= 22) 21 else -1
         val battery: String
         val utpFlag: Boolean
-        when {
-            data.size >= 34 -> {
-                // P-256: EID bytes 1-32, hashed flags at byte 33
-                val flags = (data[33].toInt() and 0xFF) xor (data[32].toInt() and 0xFF)
-                battery = batteryBitsToLabel((flags shr 5) and 0x03)
-                utpFlag = isUtp || ((flags shr 7) and 0x01 == 1)
-            }
-            data.size >= 22 -> {
-                // P-160: EID bytes 1-20, hashed flags at byte 21
-                val flags = (data[21].toInt() and 0xFF) xor (data[20].toInt() and 0xFF)
-                battery = batteryBitsToLabel((flags shr 5) and 0x03)
-                utpFlag = isUtp || ((flags shr 7) and 0x01 == 1)
-            }
-            else -> {
-                battery = "unknown"
-                utpFlag = isUtp
-            }
+        if (flagsIndex > 0) {
+            val flags = (data[flagsIndex].toInt() and 0xFF) xor (data[flagsIndex - 1].toInt() and 0xFF)
+            battery = batteryBitsToLabel((flags shr 5) and 0x03)
+            utpFlag = isUtp || ((flags shr 7) and 0x01 == 1)
+        } else {
+            battery = "unknown"
+            utpFlag = isUtp
         }
 
         val curve = if (data.size >= 34) "p256" else "p160"
@@ -70,5 +62,4 @@ object FmdnDecoder : Decoder {
             hasSensorData = true,
         )
     }
-
 }

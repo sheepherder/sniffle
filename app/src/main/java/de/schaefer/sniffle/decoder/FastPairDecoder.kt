@@ -2,6 +2,7 @@ package de.schaefer.sniffle.decoder
 
 import de.schaefer.sniffle.ble.ParsedAdvert
 import de.schaefer.sniffle.classify.FastPairLookup
+import de.schaefer.sniffle.util.readUint24BE
 
 /**
  * Google Fast Pair decoder.
@@ -20,10 +21,7 @@ object FastPairDecoder : Decoder {
         val data = advert.serviceData[FAST_PAIR_UUID] ?: return null
         if (data.size < 4) return null
 
-        // Read 3-byte model ID (big-endian) from bytes 1-3
-        val modelId = ((data[1].toInt() and 0xFF) shl 16) or
-            ((data[2].toInt() and 0xFF) shl 8) or
-            (data[3].toInt() and 0xFF)
+        val modelId = data.readUint24BE(1)
 
         val idHex = "0x%06X".format(modelId)
         val decodedModelId = "FASTPAIR_${idHex.removePrefix("0x")}"

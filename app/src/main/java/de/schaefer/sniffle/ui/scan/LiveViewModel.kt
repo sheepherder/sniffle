@@ -26,6 +26,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 data class LiveState(
@@ -65,8 +66,10 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
     private var classicJob: Job? = null
 
     init {
-        OuiLookup.init(application)
-        FastPairLookup.init(application)
+        viewModelScope.launch(Dispatchers.IO) {
+            OuiLookup.init(application)
+            FastPairLookup.init(application)
+        }
         viewModelScope.launch {
             dao.observeNotes().collect { notes ->
                 notesMap = notes.associate { it.mac to it.note }

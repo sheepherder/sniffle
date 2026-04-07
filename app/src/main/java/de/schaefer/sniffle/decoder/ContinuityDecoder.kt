@@ -71,7 +71,8 @@ object ContinuityDecoder : Decoder {
             val type = payload[offset].toInt() and 0xFF
             val length = payload[offset + 1].toInt() and 0xFF
             offset += 2
-            if (length == 0 || offset + length > payload.size) break
+            if (offset + length > payload.size) break
+            if (length == 0) continue
             result[type] = payload.sliceArray(offset until offset + length)
             offset += length
         }
