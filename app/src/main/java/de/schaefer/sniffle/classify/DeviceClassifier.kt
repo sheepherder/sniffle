@@ -50,7 +50,7 @@ object DeviceClassifier {
      * RPAs and Non-Resolvable addresses stay ONCE — they rotate and can't be tracked.
      */
     fun classifyBle(advert: ParsedAdvert, decoded: DecodedDevice?): DeviceCategory {
-        if (decoded?.hasSensorData == true && MacClassifier.isStable(advert.mac)) return DeviceCategory.SENSOR
+        if (decoded?.hasSensorData == true && MacClassifier.isStable(advert.mac, advert.addressType)) return DeviceCategory.SENSOR
         return DeviceCategory.ONCE
     }
 

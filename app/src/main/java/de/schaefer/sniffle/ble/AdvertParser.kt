@@ -1,11 +1,14 @@
 package de.schaefer.sniffle.ble
 
+import android.bluetooth.BluetoothDevice
 import android.bluetooth.le.ScanRecord
 import android.bluetooth.le.ScanResult
+import android.os.Build
 import de.schaefer.sniffle.util.toHex
 
 /**
  * Parsed BLE advertisement data, ready for decoder chain.
+ * [addressType]: BLE address type from BluetoothDevice.getAddressType() (API 34+), or -1 if unavailable.
  */
 data class ParsedAdvert(
     val mac: String,
@@ -16,6 +19,7 @@ data class ParsedAdvert(
     val serviceData: Map<String, ByteArray>,
     val serviceUuids: List<String>,
     val appearance: Int?,
+    val addressType: Int = -1,
 )
 
 object AdvertParser {
@@ -43,7 +47,13 @@ object AdvertParser {
         val svcUuids = record?.serviceUuids?.map { it.toString() } ?: emptyList()
         val appearance = parseAppearance(record)
 
-        return ParsedAdvert(mac, name, rssi, txPower, mfgData, svcData, svcUuids, appearance)
+        val addrType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            device.addressType
+        } else {
+            -1
+        }
+
+        return ParsedAdvert(mac, name, rssi, txPower, mfgData, svcData, svcUuids, appearance, addrType)
     }
 
     private fun parseAppearance(record: ScanRecord?): Int? {
