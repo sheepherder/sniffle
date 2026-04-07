@@ -46,11 +46,10 @@ object DeviceClassifier {
 
     /**
      * Initial category for a newly discovered BLE device.
-     * SENSOR only if decoded with sensor data AND stable MAC (Public or Random Static).
-     * RPAs and Non-Resolvable addresses stay ONCE — they rotate and can't be tracked.
+     * SENSOR immediately if the decoder reports sensor data (temperature, humidity, etc.).
      */
     fun classifyBle(advert: ParsedAdvert, decoded: DecodedDevice?): DeviceCategory {
-        if (decoded?.hasSensorData == true && MacClassifier.isStable(advert.mac, advert.addressType)) return DeviceCategory.SENSOR
+        if (decoded?.hasSensorData == true) return DeviceCategory.SENSOR
         return DeviceCategory.ONCE
     }
 

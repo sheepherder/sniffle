@@ -126,7 +126,7 @@ object ContinuityDecoder : Decoder {
             modelId = "APPLE_PP",
             type = "HEADPHONES",
             values = values,
-            hasSensorData = true,
+            hasSensorData = false,
         )
     }
 
@@ -166,7 +166,7 @@ object ContinuityDecoder : Decoder {
             modelId = "APPLE_NEARBY",
             type = "PHONE",
             values = values,
-            hasSensorData = true,
+            hasSensorData = false,
         )
     }
 
@@ -188,7 +188,7 @@ object ContinuityDecoder : Decoder {
             modelId = "APPLE_FINDMY",
             type = "TRACKER",
             values = values,
-            hasSensorData = true,
+            hasSensorData = false,
         )
     }
 
@@ -200,7 +200,7 @@ object ContinuityDecoder : Decoder {
         modelId = "APPLE_AIRPLAY",
         type = "AUDIO",
         values = emptyMap(),
-        hasSensorData = true,
+        hasSensorData = false,
     )
 
     // ── Fallback for unknown Apple Continuity subtypes ───────────────────
@@ -211,6 +211,6 @@ object ContinuityDecoder : Decoder {
         modelId = "APPLE_CONT",
         type = "MISC",
         values = mapOf("subtypes" to messages.keys.joinToString(",") { "0x%02X".format(it) }),
-        hasSensorData = true,
+        hasSensorData = false,
     )
 }

@@ -60,7 +60,7 @@ object MsCdpDecoder : Decoder {
                 "device_type" to deviceName,
                 "scenario" to scenarioName,
             ),
-            hasSensorData = true,
+            hasSensorData = false,
         )
     }
 }

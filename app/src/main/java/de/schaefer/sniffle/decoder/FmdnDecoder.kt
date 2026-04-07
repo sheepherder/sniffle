@@ -59,7 +59,7 @@ object FmdnDecoder : Decoder {
                 "frame_type" to if (isUtp) "utp" else "normal",
                 "curve" to curve,
             ),
-            hasSensorData = true,
+            hasSensorData = false,
         )
     }
 }

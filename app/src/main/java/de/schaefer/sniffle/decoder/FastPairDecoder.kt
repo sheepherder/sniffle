@@ -33,7 +33,7 @@ object FastPairDecoder : Decoder {
             modelId = decodedModelId,
             type = lookup?.deviceType ?: "MISC",
             values = mapOf("model_id" to idHex),
-            hasSensorData = true,
+            hasSensorData = false,
         )
     }
 }
