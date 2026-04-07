@@ -1,0 +1,866 @@
+[
+  {
+    "modelId": "0x000006",
+    "name": "Google Pixel Buds",
+    "brand": "Google",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x000007",
+    "name": "Android Auto",
+    "brand": "Google",
+    "deviceType": "AUTO"
+  },
+  {
+    "modelId": "0x00000B",
+    "name": "Google Gphones",
+    "brand": "Google",
+    "deviceType": "PHONE"
+  },
+  {
+    "modelId": "0x00000C",
+    "name": "Set Up Device aka Google Gphones",
+    "brand": "Google",
+    "deviceType": "PHONE"
+  },
+  {
+    "modelId": "0x000047",
+    "name": "Arduino 101",
+    "brand": "Arduino",
+    "deviceType": "MISC"
+  },
+  {
+    "modelId": "0x000048",
+    "name": "Fast Pair Headphones",
+    "brand": "Unknown",
+    "deviceType": "PHONE"
+  },
+  {
+    "modelId": "0x000049",
+    "name": "Fast Pair Headphones",
+    "brand": "Unknown",
+    "deviceType": "PHONE"
+  },
+  {
+    "modelId": "0x0000F0",
+    "name": "Bose QuietComfort 35 II",
+    "brand": "Bose",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x0001F0",
+    "name": "Bisto CSR8670 Dev Board",
+    "brand": "Unknown",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x0002F0",
+    "name": "JBL Everest 110GA - Gun Metal",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x0003F0",
+    "name": "LG HBS-835S",
+    "brand": "LG",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x001000",
+    "name": "LG HBS1110",
+    "brand": "LG",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x002000",
+    "name": "AIAIAI TMA-2 (H60)",
+    "brand": "AIAIAI",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x003000",
+    "name": "Libratone Q Adapt On-Ear",
+    "brand": "Libratone",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x003001",
+    "name": "Libratone Q Adapt On-Ear",
+    "brand": "Libratone",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x003B41",
+    "name": "M&D MW65",
+    "brand": "Master & Dynamic",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x003D8A",
+    "name": "Cleer FLOW Ⅱ",
+    "brand": "Cleer",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x005BC3",
+    "name": "Panasonic RP-HD610N",
+    "brand": "Panasonic",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x008F7D",
+    "name": "soundcore Glow Mini",
+    "brand": "Soundcore",
+    "deviceType": "SPEAKER"
+  },
+  {
+    "modelId": "0x00A168",
+    "name": "boAt  Airdopes 621",
+    "brand": "boAt",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x00AA48",
+    "name": "Jabra Elite 2",
+    "brand": "Jabra",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x00AA91",
+    "name": "Beoplay E8 2.0",
+    "brand": "Bang & Olufsen",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x00B727",
+    "name": "Smart Controller 1",
+    "brand": "Unknown",
+    "deviceType": "MISC"
+  },
+  {
+    "modelId": "0x00C95C",
+    "name": "Sony WF-1000X",
+    "brand": "Sony",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x00FA72",
+    "name": "Pioneer SE-MS9BN",
+    "brand": "Pioneer",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x0100F0",
+    "name": "Bose QuietComfort 35 II",
+    "brand": "Bose",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x0102F0",
+    "name": "JBL Everest 110GA - Gun Metal",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x0103F0",
+    "name": "LG HBS-835",
+    "brand": "LG",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x011242",
+    "name": "Nirvana Ion",
+    "brand": "boAt",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x013D8A",
+    "name": "Cleer EDGE Voice",
+    "brand": "Cleer",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x01AA91",
+    "name": "Beoplay H9 3rd Generation",
+    "brand": "Bang & Olufsen",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x01C95C",
+    "name": "Sony WF-1000X",
+    "brand": "Sony",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x01EEB4",
+    "name": "WH-1000XM4",
+    "brand": "Sony",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x0200F0",
+    "name": "Goodyear",
+    "brand": "Goodyear",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x0202F0",
+    "name": "JBL Everest 110GA - Silver",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x0203F0",
+    "name": "LG HBS-830",
+    "brand": "LG",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x02AA91",
+    "name": "B&O Earset",
+    "brand": "Bang & Olufsen",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x02C95C",
+    "name": "Sony WH-1000XM2",
+    "brand": "Sony",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x02D815",
+    "name": "ATH-CK1TW",
+    "brand": "Audio-Technica",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x02D886",
+    "name": "JBL REFLECT MINI NC",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x02DD4F",
+    "name": "JBL TUNE770NC",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x02E2A9",
+    "name": "TCL MOVEAUDIO S200",
+    "brand": "TCL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x02F637",
+    "name": "JBL LIVE FLEX",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x0302F0",
+    "name": "JBL Everest 310GA - Brown",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x0303F0",
+    "name": "LG HBS-930",
+    "brand": "LG",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x035754",
+    "name": "Plantronics PLT_K2",
+    "brand": "Plantronics",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x035764",
+    "name": "PLT V8200 Series",
+    "brand": "Plantronics",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x038B91",
+    "name": "DENON AH-C830NCW",
+    "brand": "Denon",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x038CC7",
+    "name": "JBL TUNE760NC",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x038F16",
+    "name": "Beats Studio Buds",
+    "brand": "Beats",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x039F8F",
+    "name": "Michael Kors Darci 5e",
+    "brand": "Michael Kors",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x03AA91",
+    "name": "B&O Beoplay H8i",
+    "brand": "Bang & Olufsen",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x03B716",
+    "name": "YY2963",
+    "brand": "Unknown",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x03C95C",
+    "name": "Sony WH-1000XM2",
+    "brand": "Sony",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x03C99C",
+    "name": "MOTO BUDS 135",
+    "brand": "Motorola",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x0402F0",
+    "name": "JBL Everest 310GA - Gun Metal",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x0403F0",
+    "name": "LG HBS-1010",
+    "brand": "LG",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x045754",
+    "name": "Plantronics PLT_K2",
+    "brand": "Plantronics",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x045764",
+    "name": "PLT V8200 Series",
+    "brand": "Plantronics",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x04AA91",
+    "name": "Beoplay H4",
+    "brand": "Bang & Olufsen",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x04ACFC",
+    "name": "JBL WAVE BEAM - Blue",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x04AFB8",
+    "name": "JBL TUNE 720BT",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x04C95C",
+    "name": "Sony WI-1000X",
+    "brand": "Sony",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x0502F0",
+    "name": "JBL Everest 310GA - Silver",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x0503F0",
+    "name": "LG HBS-1500",
+    "brand": "LG",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x050F0C",
+    "name": "Major III Voice",
+    "brand": "Marshall",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x052CC7",
+    "name": "MINOR III",
+    "brand": "Marshall",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x054B2D",
+    "name": "JBL TUNE125TWS",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x0577B1",
+    "name": "Galaxy S23 Ultra",
+    "brand": "Samsung",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x057802",
+    "name": "TicWatch Pro 5",
+    "brand": "Mobvoi",
+    "deviceType": "WATCH"
+  },
+  {
+    "modelId": "0x0582FD",
+    "name": "Pixel Buds",
+    "brand": "Google",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x058D08",
+    "name": "WH-1000XM4",
+    "brand": "Sony",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x05A963",
+    "name": "WONDERBOOM 3",
+    "brand": "Ultimate Ears",
+    "deviceType": "SPEAKER"
+  },
+  {
+    "modelId": "0x05A9BC",
+    "name": "Galaxy S20+",
+    "brand": "Samsung",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x05AA91",
+    "name": "B&O Beoplay E6",
+    "brand": "Bang & Olufsen",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x05C452",
+    "name": "JBL LIVE220BT",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x05C95C",
+    "name": "Sony WI-1000X",
+    "brand": "Sony",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x060000",
+    "name": "Google Pixel Buds",
+    "brand": "Google",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x0602F0",
+    "name": "JBL Everest 310GA - Purple",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x0603F0",
+    "name": "LG HBS-1700",
+    "brand": "LG",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x0660D7",
+    "name": "JBL LIVE770NC",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x06AE20",
+    "name": "Galaxy S21 5G",
+    "brand": "Samsung",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x06C197",
+    "name": "OPPO Enco Air3 Pro",
+    "brand": "OPPO",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x06C95C",
+    "name": "Sony WH-1000XM2",
+    "brand": "Sony",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x06D8FC",
+    "name": "soundcore Liberty 4 NC",
+    "brand": "Soundcore",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x070000",
+    "name": "Android Auto",
+    "brand": "Google",
+    "deviceType": "AUTO"
+  },
+  {
+    "modelId": "0x0702F0",
+    "name": "JBL Everest 710GA - Gun Metal",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x0703F0",
+    "name": "LG HBS-1120",
+    "brand": "LG",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x0744B6",
+    "name": "Technics EAH-AZ60M2",
+    "brand": "Technics",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x07A41C",
+    "name": "WF-C700N",
+    "brand": "Sony",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x07C95C",
+    "name": "Sony WH-1000XM2",
+    "brand": "Sony",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x07F426",
+    "name": "Nest Hub Max",
+    "brand": "Google",
+    "deviceType": "DISPLAY"
+  },
+  {
+    "modelId": "0x0802F0",
+    "name": "JBL Everest 710GA - Silver",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x0803F0",
+    "name": "LG HBS-1125",
+    "brand": "LG",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x0903F0",
+    "name": "LG HBS-2000",
+    "brand": "LG",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x0B0000",
+    "name": "Google Gphones",
+    "brand": "Google",
+    "deviceType": "PHONE"
+  },
+  {
+    "modelId": "0x0C0000",
+    "name": "Google Gphones",
+    "brand": "Google",
+    "deviceType": "PHONE"
+  },
+  {
+    "modelId": "0x0E30C3",
+    "name": "Razer Hammerhead TWS",
+    "brand": "Razer",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x2D7A23",
+    "name": "Sony WF-1000XM4",
+    "brand": "Sony",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x470000",
+    "name": "Arduino 101",
+    "brand": "Arduino",
+    "deviceType": "MISC"
+  },
+  {
+    "modelId": "0x480000",
+    "name": "Fast Pair Headphones",
+    "brand": "Unknown",
+    "deviceType": "PHONE"
+  },
+  {
+    "modelId": "0x490000",
+    "name": "Fast Pair Headphones",
+    "brand": "Unknown",
+    "deviceType": "PHONE"
+  },
+  {
+    "modelId": "0x718FA4",
+    "name": "JBL Live 300TWS",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x72EF8D",
+    "name": "Razer Hammerhead TWS X",
+    "brand": "Razer",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x72FB00",
+    "name": "Soundcore Spirit Pro GVA",
+    "brand": "Soundcore",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0x821F66",
+    "name": "JBL Flip 6",
+    "brand": "JBL",
+    "deviceType": "SPEAKER"
+  },
+  {
+    "modelId": "0x92BBBD",
+    "name": "Pixel Buds",
+    "brand": "Google",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0xCD8256",
+    "name": "Bose NC 700",
+    "brand": "Bose",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0xD446A7",
+    "name": "Sony XM5",
+    "brand": "Sony",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0xF00000",
+    "name": "Bose QuietComfort 35 II",
+    "brand": "Bose",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0xF00200",
+    "name": "JBL Everest 110GA - Gun Metal",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0xF00201",
+    "name": "JBL Everest 110GA - Gun Metal",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0xF00202",
+    "name": "JBL Everest 110GA - Silver",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0xF00203",
+    "name": "JBL Everest 310GA - Brown",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0xF00204",
+    "name": "JBL Everest 310GA - Gun Metal",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0xF00205",
+    "name": "JBL Everest 310GA - Silver",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0xF00206",
+    "name": "JBL Everest 310GA - Purple",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0xF00207",
+    "name": "JBL Everest 710GA - Gun Metal",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0xF00208",
+    "name": "JBL Everest 710GA - Silver",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0xF00209",
+    "name": "JBL LIVE400BT - Black",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0xF0020A",
+    "name": "JBL LIVE400BT - White",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0xF0020B",
+    "name": "JBL LIVE400BT - Blue",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0xF0020C",
+    "name": "JBL LIVE400BT - Red",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0xF0020D",
+    "name": "JBL LIVE400BT - Black",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0xF0020E",
+    "name": "JBL LIVE500BT - Black",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0xF0020F",
+    "name": "JBL LIVE500BT - White",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0xF00210",
+    "name": "JBL LIVE500BT - Blue",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0xF00211",
+    "name": "JBL LIVE500BT - Red",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0xF00212",
+    "name": "JBL LIVE500BT - Black",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0xF00213",
+    "name": "JBL LIVE650BTNC - Black",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0xF00214",
+    "name": "JBL LIVE650BTNC - White",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0xF00215",
+    "name": "JBL LIVE650BTNC - Blue",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0xF00300",
+    "name": "LG HBS-835S",
+    "brand": "LG",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0xF00301",
+    "name": "LG HBS-835",
+    "brand": "LG",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0xF00302",
+    "name": "LG HBS-830",
+    "brand": "LG",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0xF00303",
+    "name": "LG HBS-930",
+    "brand": "LG",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0xF00304",
+    "name": "LG HBS-1010",
+    "brand": "LG",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0xF00305",
+    "name": "LG HBS-1500",
+    "brand": "LG",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0xF00306",
+    "name": "LG HBS-1700",
+    "brand": "LG",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0xF00307",
+    "name": "LG HBS-1120",
+    "brand": "LG",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0xF00308",
+    "name": "LG HBS-1125",
+    "brand": "LG",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0xF00309",
+    "name": "LG HBS-2000",
+    "brand": "LG",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0xF00400",
+    "name": "T10",
+    "brand": "Unknown",
+    "deviceType": "HEADPHONES"
+  },
+  {
+    "modelId": "0xF52494",
+    "name": "JBL Buds Pro",
+    "brand": "JBL",
+    "deviceType": "HEADPHONES"
+  }
+]

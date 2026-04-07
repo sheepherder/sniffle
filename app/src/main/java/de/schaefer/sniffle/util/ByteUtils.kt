@@ -44,6 +44,15 @@ fun ByteArray.readInt24LE(offset: Int): Int {
     return if (raw > 0x7FFFFF) raw - 0x1000000 else raw
 }
 
+/** Maps a 2-bit BLE battery level field (0-3) to a label. */
+fun batteryBitsToLabel(bits: Int): String = when (bits) {
+    0 -> "full"
+    1 -> "medium"
+    2 -> "low"
+    3 -> "critical"
+    else -> "unknown"
+}
+
 /** Read little-endian value of [len] bytes (1-4), signed or unsigned. */
 fun ByteArray.readValueLE(offset: Int, len: Int, signed: Boolean): Double {
     return when (len) {

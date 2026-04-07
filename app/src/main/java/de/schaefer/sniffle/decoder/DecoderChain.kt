@@ -32,6 +32,10 @@ object DecoderChain {
         RuuviDecoder,
         EddystoneDecoder,
         IBeaconDecoder,
+        ContinuityDecoder,
+        FastPairDecoder,
+        FmdnDecoder,
+        MsCdpDecoder,
     )
 
     fun decode(advert: ParsedAdvert): DecodedDevice? {
@@ -55,7 +59,11 @@ object TheengsDecoderAdapter : Decoder {
         "type", "cidc", "acts"
     )
 
+    // Company IDs handled by dedicated decoders (ContinuityDecoder, MsCdpDecoder)
+    private val SKIP_COMPANY_IDS = setOf(0x004C, 0x0006)
+
     override fun decode(advert: ParsedAdvert): DecodedDevice? {
+        if (advert.manufacturerData.keys.any { it in SKIP_COMPANY_IDS }) return null
         val input = buildTheengsJson(advert)
         if (input.length < 3) return null
         val resultJson = TheengsDecoder.decodeBLE(input) ?: return null

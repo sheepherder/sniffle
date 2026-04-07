@@ -20,7 +20,7 @@ object EddystoneDecoder : Decoder {
             0x00 -> decodeUid(data)
             0x10 -> decodeUrl(data)
             0x20 -> decodeTlm(data)
-            else -> null
+            else -> null // 0x40/0x41 handled by FmdnDecoder downstream
         }
     }
 

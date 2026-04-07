@@ -23,6 +23,7 @@ import de.schaefer.sniffle.ble.AdvertParser
 import de.schaefer.sniffle.ble.ClassicDevice
 import de.schaefer.sniffle.ble.ClassicScanner
 import de.schaefer.sniffle.ble.ScanProcessor
+import de.schaefer.sniffle.classify.FastPairLookup
 import de.schaefer.sniffle.classify.OuiLookup
 import de.schaefer.sniffle.util.Preferences
 import de.schaefer.sniffle.util.formatScanSummary
@@ -59,6 +60,7 @@ class ScanWorker(
 
         val dao = (applicationContext as App).database.deviceDao()
         OuiLookup.init(applicationContext)
+        FastPairLookup.init(applicationContext)
 
         // Get GPS with timeout
         val loc = withTimeoutOrNull(3_000L) { getLocation() }

@@ -15,6 +15,7 @@ import de.schaefer.sniffle.ble.BleScanner
 import de.schaefer.sniffle.ble.ClassicScanner
 import de.schaefer.sniffle.ble.ProcessedDevice
 import de.schaefer.sniffle.ble.ScanProcessor
+import de.schaefer.sniffle.classify.FastPairLookup
 import de.schaefer.sniffle.classify.OuiLookup
 import de.schaefer.sniffle.data.DeviceCategory
 import de.schaefer.sniffle.data.DeviceEntity
@@ -65,6 +66,7 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         OuiLookup.init(application)
+        FastPairLookup.init(application)
         viewModelScope.launch {
             dao.observeNotes().collect { notes ->
                 notesMap = notes.associate { it.mac to it.note }
