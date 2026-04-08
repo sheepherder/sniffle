@@ -164,6 +164,9 @@ fun DeviceCard(
                     .background(section.color)
             )
 
+            val entity = device.entity
+            val dn = entity.displayName
+
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -175,14 +178,13 @@ fun DeviceCard(
                         Spacer(Modifier.width(6.dp))
                     }
 
-                    val entity = device.entity
                     val transportTag = when (entity.transport) {
                         Transport.CLASSIC -> " (BT)"
                         Transport.BOTH -> " (BLE+BT)"
                         else -> ""
                     }
                     Text(
-                        "${entity.displayName}$transportTag",
+                        "$dn$transportTag",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium,
                         maxLines = 1,
@@ -199,10 +201,9 @@ fun DeviceCard(
                     }
                 }
 
-                val displayValues = device.values
-                if (displayValues.isNotEmpty()) {
+                if (device.values.isNotEmpty()) {
                     Text(
-                        displayValues.entries.joinToString("  ") { (k, v) ->
+                        device.values.entries.joinToString("  ") { (k, v) ->
                             val formatted = if (v is Double) "%.1f".format(v) else v.toString()
                             "$k $formatted"
                         },
@@ -211,11 +212,10 @@ fun DeviceCard(
                         maxLines = 2,
                     )
                 } else {
-                    val entity = device.entity
                     val extras = buildList {
-                        entity.brand?.let { add(it) }
-                        entity.company?.let { if (it != entity.brand) add(it) }
-                        entity.appearance?.let { add(it) }
+                        entity.brand?.let { if (it != dn) add(it) }
+                        entity.company?.let { if (it != entity.brand && it != dn) add(it) }
+                        entity.appearance?.let { if (it != dn) add(it) }
                         if (!device.isLive && entity.latestSeenMs > 0) {
                             add("Zuletzt ${formatTimestamp(entity.latestSeenMs)}")
                         }
@@ -229,7 +229,7 @@ fun DeviceCard(
                     }
                 }
 
-                device.entity.note?.let {
+                entity.note?.let {
                     Text(
                         "📝 $it",
                         style = MaterialTheme.typography.bodySmall,

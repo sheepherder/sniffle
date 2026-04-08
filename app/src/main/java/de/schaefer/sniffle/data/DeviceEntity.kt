@@ -33,7 +33,12 @@ data class DeviceEntity(
     val note: String? = null,
     val notified: Boolean = false,
 ) {
-    val displayName: String get() = name ?: classicName ?: model ?: mac
+    val displayName: String get() {
+        name?.let { return it }
+        classicName?.let { return it }
+        val fallback = model ?: appearance ?: brand ?: company ?: return mac
+        return "$fallback · ${mac.takeLast(5)}"
+    }
 
     val hasIdentity: Boolean get() =
         !name.isNullOrBlank() || !classicName.isNullOrBlank() ||
