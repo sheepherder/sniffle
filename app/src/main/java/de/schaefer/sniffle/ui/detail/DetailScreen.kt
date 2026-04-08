@@ -6,14 +6,20 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -76,6 +82,7 @@ fun DetailScreen(
             )
         }
     ) { padding ->
+        val focusManager = LocalFocusManager.current
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -105,9 +112,10 @@ fun DetailScreen(
             }
 
             // Note field
-            item {
+            item(key = "note") {
                 var showSaved by remember { mutableStateOf(false) }
                 var editCount by remember { mutableIntStateOf(0) }
+                var isFocused by remember { mutableStateOf(false) }
 
                 LaunchedEffect(editCount) {
                     if (editCount > 0) {
@@ -117,11 +125,21 @@ fun DetailScreen(
                     }
                 }
 
+                val trailingIcon: (@Composable () -> Unit)? = remember(showSaved, isFocused) {
+                    when {
+                        showSaved -> {{ Icon(Icons.Default.Check, "Gespeichert", tint = MaterialTheme.colorScheme.primary) }}
+                        isFocused -> {{ IconButton(onClick = { focusManager.clearFocus() }) {
+                            Icon(Icons.Default.Close, "Schließen")
+                        } }}
+                        else -> null
+                    }
+                }
+
                 OutlinedTextField(
                     value = state.note,
                     onValueChange = { viewModel.updateNote(it); editCount++ },
                     label = { Text("Notiz") },
-                    placeholder = { Text("z.B. Geberit im Café Stadtpark") },
+                    placeholder = { Text("Eigene Notiz hinzufügen…") },
                     supportingText = {
                         if (showSaved) {
                             Text("Gespeichert", color = MaterialTheme.colorScheme.primary)
@@ -129,13 +147,14 @@ fun DetailScreen(
                             Text("Wird automatisch gespeichert")
                         }
                     },
-                    trailingIcon = if (showSaved) {
-                        { Icon(Icons.Default.Check, "Gespeichert", tint = MaterialTheme.colorScheme.primary) }
-                    } else null,
+                    trailingIcon = trailingIcon,
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .onFocusChanged { isFocused = it.isFocused }
                 )
             }
 
