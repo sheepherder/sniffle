@@ -33,7 +33,7 @@ data class DeviceEntity(
     val note: String? = null,
     val notified: Boolean = false,
 ) {
-    val displayName: String get() = model ?: name ?: classicName ?: mac
+    val displayName: String get() = name ?: classicName ?: model ?: mac
 
     val hasIdentity: Boolean get() =
         !name.isNullOrBlank() || !classicName.isNullOrBlank() ||
