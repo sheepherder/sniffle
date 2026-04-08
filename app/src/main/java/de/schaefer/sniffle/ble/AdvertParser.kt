@@ -49,7 +49,7 @@ object AdvertParser {
     private fun parseAppearance(record: ScanRecord?): Int? {
         val bytes = record?.bytes ?: return null
         var i = 0
-        while (i < bytes.size - 1) {
+        while (i < bytes.size) {
             val len = bytes[i].toInt() and 0xFF
             if (len == 0) break
             if (i + len >= bytes.size) break

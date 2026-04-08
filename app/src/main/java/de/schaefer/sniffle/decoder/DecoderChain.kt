@@ -79,7 +79,7 @@ object TheengsDecoderAdapter : Decoder {
             val values = mutableMapOf<String, Any>()
             for ((key, element) in obj) {
                 if (key in SKIP_KEYS) continue
-                val prim = element.jsonPrimitive
+                val prim = (element as? kotlinx.serialization.json.JsonPrimitive) ?: continue
                 values[key] = when {
                     prim.isString -> prim.content
                     prim.content.contains('.') -> prim.content.toDoubleOrNull() ?: prim.content
@@ -100,15 +100,17 @@ object TheengsDecoderAdapter : Decoder {
     private fun buildTheengsJson(advert: ParsedAdvert): String = buildJsonObject {
         if (!advert.name.isNullOrEmpty()) put("name", advert.name)
         if (advert.manufacturerData.isNotEmpty()) {
-            val hex = advert.manufacturerData.entries.joinToString("") { (cid, payload) ->
-                "%02x%02x".format(cid and 0xFF, (cid shr 8) and 0xFF) + payload.toHex()
-            }
+            val (cid, payload) = advert.manufacturerData.entries.first()
+            val hex = "%02x%02x".format(cid and 0xFF, (cid shr 8) and 0xFF) + payload.toHex()
             put("manufacturerdata", hex)
         }
         if (advert.serviceData.isNotEmpty()) {
             val (uuid, payload) = advert.serviceData.entries.first()
             put("servicedata", payload.toHex())
-            put("servicedatauuid", uuid)
+            // Theengs expects short "0x181a" form, Android gives full 128-bit UUID
+            val shortUuid = if (uuid.length == 36 && uuid.endsWith("-0000-1000-8000-00805f9b34fb"))
+                "0x${uuid.substring(4, 8)}" else uuid
+            put("servicedatauuid", shortUuid)
         }
     }.toString()
 }

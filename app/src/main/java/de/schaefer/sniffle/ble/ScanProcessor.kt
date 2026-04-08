@@ -99,8 +99,9 @@ class ScanProcessor(
 
             val (promoted, did) = checkPromotion(
                 mac = advert.mac, currentCategory = category, nowMs = nowMs,
-                name = merged.name ?: merged.classicName, ouiVendor = ouiVendor, company = company,
-                appearance = appearance, serviceHints = serviceHints, deviceClassName = null,
+                name = merged.name ?: merged.classicName, ouiVendor = merged.company,
+                company = merged.company, appearance = merged.appearance,
+                serviceHints = serviceHints, deviceClassName = null,
             )
             finalCategory = promoted
             wasPromoted = did
@@ -140,7 +141,7 @@ class ScanProcessor(
             deviceType = existing?.deviceType,
             transport = transport,
             category = category,
-            appearance = className,
+            appearance = className ?: existing?.appearance,
             company = company,
             firstSeenMs = existing?.firstSeenMs ?: nowMs,
             latestSeenMs = nowMs,
@@ -171,7 +172,7 @@ class ScanProcessor(
             mac = device.mac, name = merged.name ?: merged.classicName, rssi = device.rssi,
             category = finalCategory, brand = merged.brand, model = merged.model,
             type = merged.deviceType, values = emptyMap(), company = company,
-            appearance = className, serviceHints = emptyList(),
+            appearance = merged.appearance, serviceHints = emptyList(),
             transport = transport,
             guessedType = DeviceClassifier.guessTypeFromName(device.name),
             wasPromoted = wasPromoted,

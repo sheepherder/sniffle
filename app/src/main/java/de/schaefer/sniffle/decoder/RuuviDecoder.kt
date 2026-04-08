@@ -16,7 +16,7 @@ object RuuviDecoder : Decoder {
 
     override fun decode(advert: ParsedAdvert): DecodedDevice? {
         val p = advert.manufacturerData[RUUVI_COMPANY_ID] ?: return null
-        if (p.size < 14 || (p[0].toInt() and 0xFF) != FORMAT_RAWV2) return null
+        if (p.size < 15 || (p[0].toInt() and 0xFF) != FORMAT_RAWV2) return null
 
         val values = mutableMapOf<String, Any>()
 
@@ -39,10 +39,17 @@ object RuuviDecoder : Decoder {
         val powerInfo = p.readUint16BE(13)
         val batteryMv = (powerInfo ushr 5) + 1600
         if (batteryMv != 1600 + 0x7FF) values["battery"] = batteryMv / 1000.0
-        values["tx_power"] = (powerInfo and 0x1F) * 2 - 40
+        val txRaw = powerInfo and 0x1F
+        if (txRaw != 0x1F) values["tx_power"] = txRaw * 2 - 40
 
-        if (p.size > 15) values["movement"] = p[15].toInt() and 0xFF
-        if (p.size > 17) values["sequence"] = p.readUint16BE(16)
+        if (p.size > 15) {
+            val mov = p[15].toInt() and 0xFF
+            if (mov != 0xFF) values["movement"] = mov
+        }
+        if (p.size > 17) {
+            val seq = p.readUint16BE(16)
+            if (seq != 0xFFFF) values["sequence"] = seq
+        }
 
         if (values.isEmpty()) return null
         return DecodedDevice("Ruuvi", "RuuviTag RAWv2", "RUUVI_RAWV2", "THB", values, true)

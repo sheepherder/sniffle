@@ -37,8 +37,8 @@ object MsCdpDecoder : Decoder {
         val byte0 = payload[0].toInt() and 0xFF
         val byte1 = payload[1].toInt() and 0xFF
 
-        val scenarioType = (byte0 shr 4) and 0x0F
-        val deviceType = (byte1 shr 3) and 0x1F
+        val scenarioType = byte0
+        val deviceType = byte1 and 0x1F
 
         val deviceName = DEVICE_TYPES[deviceType] ?: "Microsoft Device ($deviceType)"
         val scenarioName = SCENARIO_TYPES[scenarioType] ?: "unknown"

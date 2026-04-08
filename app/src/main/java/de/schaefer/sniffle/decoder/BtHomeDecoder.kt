@@ -26,10 +26,8 @@ object BtHomeDecoder : Decoder {
         var offset = 0
 
         if (version == 2) {
-            // Byte 0: device info (bit 0: encryption, bits 5-7: version)
             val info = payload[0].toInt() and 0xFF
-            val encrypted = info and 0x01 != 0
-            if (encrypted) return null // encrypted payloads not supported yet
+            if (info and 0x01 != 0) return null // encrypted payloads not supported
             offset = 1
         }
 
@@ -69,7 +67,7 @@ object BtHomeDecoder : Decoder {
     private val SENSOR_KEYS = setOf(
         "temperature", "humidity", "pressure", "battery", "voltage",
         "co2", "pm25", "pm10", "illuminance", "moisture", "power",
-        "energy", "weight", "distance", "count",
+        "energy", "weight", "distance", "count", "count_2", "count_4",
     )
 
 
@@ -118,6 +116,12 @@ object BtHomeDecoder : Decoder {
         0x50 to ObjDef("timestamp", 4),
         0x51 to ObjDef("acceleration", 2, 0.001),           // m/s²
         0x52 to ObjDef("gyroscope", 2, 0.001),              // °/s
+        0x55 to ObjDef("volume_storage", 4, 0.001),         // L
+        0x56 to ObjDef("conductivity", 2),                   // µS/cm
+        0x57 to ObjDef("temperature_1c", 1, 1.0, true),     // °C (sint8)
+        0x58 to ObjDef("temperature_035c", 1, 0.35, true),  // °C (sint8)
+        0x3F to ObjDef("rotation", 2, 0.1, true),           // °
+        0x2F to ObjDef("moisture_pct", 1),                   // %
         // Binary sensors (1 byte)
         0x0F to ObjDef("generic_bool", 1),
         0x10 to ObjDef("power_on", 1),
