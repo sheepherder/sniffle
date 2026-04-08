@@ -23,7 +23,8 @@ interface DeviceDao {
             modelId = COALESCE(:modelId, modelId),
             deviceType = COALESCE(:deviceType, deviceType),
             transport = :transport,
-            category = :category,
+            hasSensorData = :hasSensorData,
+            promoted = :promoted,
             appearance = COALESCE(:appearance, appearance),
             company = COALESCE(:company, company),
             latestSeenMs = :latestSeenMs
@@ -32,7 +33,7 @@ interface DeviceDao {
     suspend fun updateFromScan(
         mac: String, name: String?, classicName: String?,
         brand: String?, model: String?, modelId: String?,
-        deviceType: String?, transport: Transport, category: DeviceCategory,
+        deviceType: String?, transport: Transport, hasSensorData: Boolean, promoted: Boolean,
         appearance: String?, company: String?,
         latestSeenMs: Long,
     ): Int
@@ -46,7 +47,7 @@ interface DeviceDao {
     @Query("SELECT * FROM devices WHERE mac = :mac")
     fun observeDevice(mac: String): Flow<DeviceEntity?>
 
-    @Query("SELECT * FROM devices WHERE category != 'ONCE' ORDER BY latestSeenMs DESC")
+    @Query("SELECT * FROM devices WHERE hasSensorData = 1 OR promoted = 1 ORDER BY latestSeenMs DESC")
     fun observePromotedDevices(): Flow<List<DeviceEntity>>
 
     @Query("SELECT * FROM devices ORDER BY latestSeenMs DESC")
@@ -87,15 +88,15 @@ interface DeviceDao {
     @Query("SELECT mac, note FROM devices WHERE note IS NOT NULL")
     fun observeNotes(): Flow<List<NoteEntry>>
 
-    @Query("UPDATE devices SET category = :category, notified = 0 WHERE mac = :mac")
-    suspend fun updateCategory(mac: String, category: DeviceCategory)
+    @Query("UPDATE devices SET promoted = 1, notified = 0 WHERE mac = :mac")
+    suspend fun setPromoted(mac: String)
 
     @Query("DELETE FROM devices WHERE mac = :mac")
     suspend fun deleteDevice(mac: String)
 
     @Query("""
         DELETE FROM devices
-        WHERE category = 'ONCE'
+        WHERE hasSensorData = 0 AND promoted = 0
         AND latestSeenMs < :cutoffMs
     """)
     suspend fun deleteStaleOnce(cutoffMs: Long)
@@ -104,7 +105,7 @@ interface DeviceDao {
     @Query("""
         SELECT s.* FROM sightings s
         INNER JOIN devices d ON s.mac = d.mac
-        WHERE s.latitude IS NOT NULL AND d.category != 'ONCE'
+        WHERE s.latitude IS NOT NULL AND (d.hasSensorData = 1 OR d.promoted = 1)
         ORDER BY s.timestamp DESC
     """)
     fun observeAllGeoSightings(): Flow<List<SightingEntity>>

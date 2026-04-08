@@ -17,8 +17,9 @@ import de.schaefer.sniffle.ble.ProcessedDevice
 import de.schaefer.sniffle.ble.ScanProcessor
 import de.schaefer.sniffle.classify.FastPairLookup
 import de.schaefer.sniffle.classify.OuiLookup
-import de.schaefer.sniffle.data.DeviceCategory
 import de.schaefer.sniffle.data.DeviceEntity
+import de.schaefer.sniffle.data.Section
+import de.schaefer.sniffle.data.Transport
 import de.schaefer.sniffle.data.includesBle
 import de.schaefer.sniffle.data.includesClassic
 import de.schaefer.sniffle.util.Preferences
@@ -28,24 +29,30 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
-data class LiveState(
-    val sensors: List<DeviceEntity> = emptyList(),
-    val devices: List<DeviceEntity> = emptyList(),
-    val mystery: List<DeviceEntity> = emptyList(),
-    val once: List<DeviceEntity> = emptyList(),
+enum class ListMode { LIVE, ALL }
+
+data class DisplayDevice(
+    val entity: DeviceEntity,
+    val isLive: Boolean = false,
+    val rssi: Int? = null,
+    val values: Map<String, Any> = emptyMap(),
+    val pingCount: Int = 0,
+)
+
+data class ScanState(
+    val mode: ListMode = ListMode.LIVE,
+    val grouped: Map<Section, List<DisplayDevice>> = emptyMap(),
     val onceExpanded: Boolean = false,
     val totalCount: Int = 0,
-    val allMacs: Set<String> = emptySet(),
-    val rssiMap: Map<String, Int> = emptyMap(),
-    val valuesMap: Map<String, Map<String, Any>> = emptyMap(),
     val bleActive: Boolean = true,
     val classicActive: Boolean = true,
     val bleCount: Int = 0,
     val classicCount: Int = 0,
 )
 
-class LiveViewModel(application: Application) : AndroidViewModel(application) {
+class ScanViewModel(application: Application) : AndroidViewModel(application) {
 
     private val prefs = Preferences(application)
     private val dao = (application as App).database.deviceDao()
@@ -54,16 +61,24 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
     private val processor = ScanProcessor(dao)
     private val locationClient = LocationServices.getFusedLocationProviderClient(application)
 
-    private val _state = MutableStateFlow(LiveState())
-    val state: StateFlow<LiveState> = _state
+    private val _state = MutableStateFlow(ScanState())
+    val state: StateFlow<ScanState> = _state
 
-    private val liveDevices = mutableMapOf<String, ProcessedDevice>()
-    private val lastSeenAt = mutableMapOf<String, Long>()
-    private var notesMap = emptyMap<String, String>()
+    private var dbEntities = mapOf<String, DeviceEntity>()
+    private val liveData = mutableMapOf<String, LiveInfo>()
+
     private var refreshJob: Job? = null
     private var locationCallback: LocationCallback? = null
     private var bleJob: Job? = null
     private var classicJob: Job? = null
+
+    private data class LiveInfo(
+        val entity: DeviceEntity,
+        val rssi: Int,
+        val values: Map<String, Any>,
+        val pingCount: Int,
+        val lastPingMs: Long,
+    )
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
@@ -71,9 +86,16 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
             FastPairLookup.init(application)
         }
         viewModelScope.launch {
-            dao.observeNotes().collect { notes ->
-                notesMap = notes.associate { it.mac to it.note }
-                if (liveDevices.isNotEmpty()) scheduleRefresh()
+            dao.observeAllDevices().collect { devices ->
+                dbEntities = devices.associateBy { it.mac }
+                buildState()
+            }
+        }
+        // Periodic stale cleanup independent of scan activity
+        viewModelScope.launch {
+            while (true) {
+                delay(30_000)
+                if (liveData.isNotEmpty()) buildState()
             }
         }
     }
@@ -82,25 +104,22 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
     fun startScanning() {
         (getApplication<Application>() as App).isScanning = true
         startLocationUpdates()
-        restartScans()
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                dao.deleteStaleOnce(System.currentTimeMillis() - 90L * 24 * 60 * 60 * 1000)
+            }
+            restartScans()
+        }
     }
 
-    /** Re-read settings and restart/stop scans accordingly. */
     fun restartScans() {
         val bleEnabled = prefs.bleScan
         val classicEnabled = prefs.classicScan
 
-        // BLE
         if (bleEnabled && bleScanner.isAvailable && bleJob == null) {
             bleJob = viewModelScope.launch {
                 bleScanner.scan().collect { advert ->
-                    val result = processor.processBle(advert)
-                    val prev = liveDevices[result.mac]
-                    // Keep previous values if this advertisement has none
-                    liveDevices[result.mac] = if (result.values.isEmpty() && prev != null)
-                        result.copy(values = prev.values) else result
-                    lastSeenAt[result.mac] = System.currentTimeMillis()
-                    scheduleRefresh()
+                    onScanResult(processor.processBle(advert))
                 }
             }
         } else if (!bleEnabled && bleJob != null) {
@@ -108,14 +127,10 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
             bleJob = null
         }
 
-        // Classic BT
         if (classicEnabled && classicScanner.isAvailable && classicJob == null) {
             classicJob = viewModelScope.launch {
                 classicScanner.scan().collect { device ->
-                    val result = processor.processClassic(device)
-                    liveDevices[result.mac] = result
-                    lastSeenAt[result.mac] = System.currentTimeMillis()
-                    scheduleRefresh()
+                    onScanResult(processor.processClassic(device))
                 }
             }
         } else if (!classicEnabled && classicJob != null) {
@@ -129,8 +144,92 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
+    fun setMode(mode: ListMode) {
+        _state.value = _state.value.copy(mode = mode)
+        buildState()
+    }
+
     fun toggleOnceExpanded() {
         _state.value = _state.value.copy(onceExpanded = !_state.value.onceExpanded)
+    }
+
+    private fun onScanResult(result: ProcessedDevice) {
+        val mac = result.mac
+        val prev = liveData[mac]
+        val mergedValues = (prev?.values ?: emptyMap()).toMutableMap().apply {
+            if (result.values.isNotEmpty()) putAll(result.values)
+        }
+        liveData[mac] = LiveInfo(
+            entity = result.toEntity(),
+            rssi = result.rssi,
+            values = mergedValues,
+            pingCount = (prev?.pingCount ?: 0) + 1,
+            lastPingMs = System.currentTimeMillis(),
+        )
+        scheduleRefresh()
+    }
+
+    private fun scheduleRefresh() {
+        refreshJob?.cancel()
+        refreshJob = viewModelScope.launch {
+            delay(250)
+            buildState()
+        }
+    }
+
+    private fun buildState() {
+        val now = System.currentTimeMillis()
+        val cutoff = now - 60_000
+        val mode = _state.value.mode
+
+        liveData.entries.removeAll { it.value.lastPingMs < cutoff }
+
+        val source = buildList {
+            for (entity in dbEntities.values) {
+                val live = liveData[entity.mac]
+                if (mode == ListMode.LIVE && live == null) continue
+                add(DisplayDevice(
+                    entity = entity,
+                    isLive = live != null,
+                    rssi = live?.rssi,
+                    values = live?.values ?: emptyMap(),
+                    pingCount = live?.pingCount ?: 0,
+                ))
+            }
+            for ((mac, live) in liveData) {
+                if (mac in dbEntities) continue
+                add(DisplayDevice(
+                    entity = live.entity,
+                    isLive = true,
+                    rssi = live.rssi,
+                    values = live.values,
+                    pingCount = live.pingCount,
+                ))
+            }
+        }
+
+        val modeComparator: Comparator<DisplayDevice> = when (mode) {
+            ListMode.LIVE -> compareByDescending { it.pingCount }
+            ListMode.ALL -> compareByDescending { it.entity.latestSeenMs }
+        }
+
+        val sorted = source.sortedWith(
+            compareBy<DisplayDevice> { it.entity.section }.then(modeComparator)
+        )
+
+        var bleCount = 0
+        var classicCount = 0
+        for (d in source) {
+            if (d.entity.transport.includesBle) bleCount++
+            if (d.entity.transport.includesClassic) classicCount++
+        }
+
+        _state.value = _state.value.copy(
+            grouped = sorted.groupBy { it.entity.section },
+            totalCount = source.size,
+            bleCount = bleCount,
+            classicCount = classicCount,
+        )
     }
 
     @SuppressLint("MissingPermission")
@@ -158,39 +257,11 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
         locationCallback?.let { locationClient.removeLocationUpdates(it) }
         super.onCleared()
     }
-
-    private fun scheduleRefresh() {
-        refreshJob?.cancel()
-        refreshJob = viewModelScope.launch {
-            delay(250)
-            val cutoff = System.currentTimeMillis() - 60_000
-            liveDevices.keys.removeAll { mac -> (lastSeenAt[mac] ?: 0) < cutoff }
-
-            val all = liveDevices.values.toList()
-            val entities = all.map { d ->
-                d.toEntity().let { e -> notesMap[e.mac]?.let { e.copy(note = it) } ?: e }
-            }
-            val rssiMap = all.associate { it.mac to it.rssi }
-            val valuesMap = all.filter { it.values.isNotEmpty() }.associate { it.mac to it.values }
-
-            _state.value = _state.value.copy(
-                sensors = entities.filter { it.category == DeviceCategory.SENSOR }.sortedByDescending { rssiMap[it.mac] },
-                devices = entities.filter { it.category == DeviceCategory.DEVICE }.sortedByDescending { rssiMap[it.mac] },
-                mystery = entities.filter { it.category == DeviceCategory.MYSTERY }.sortedByDescending { rssiMap[it.mac] },
-                once = entities.filter { it.category == DeviceCategory.ONCE }.sortedByDescending { rssiMap[it.mac] },
-                totalCount = entities.size,
-                allMacs = liveDevices.keys.toSet(),
-                rssiMap = rssiMap,
-                valuesMap = valuesMap,
-                bleCount = all.count { it.transport.includesBle },
-                classicCount = all.count { it.transport.includesClassic },
-            )
-        }
-    }
 }
 
 private fun ProcessedDevice.toEntity() = DeviceEntity(
     mac = mac, name = name, brand = brand, model = model,
-    deviceType = type, transport = transport, category = category,
+    deviceType = type, transport = transport,
+    hasSensorData = hasSensorData, promoted = promoted,
     appearance = appearance, company = company,
 )

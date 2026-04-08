@@ -21,10 +21,9 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
 import de.schaefer.sniffle.App
-import de.schaefer.sniffle.data.DeviceCategory
+import de.schaefer.sniffle.data.DeviceEntity
+import de.schaefer.sniffle.data.Section
 import de.schaefer.sniffle.data.SightingEntity
-import de.schaefer.sniffle.ui.CATEGORIES
-import de.schaefer.sniffle.ui.DeviceColor
 import kotlinx.coroutines.flow.*
 import org.osmdroid.util.GeoPoint
 
@@ -45,24 +44,22 @@ class FullMapViewModel(application: Application) : AndroidViewModel(application)
             val deviceMap = devs.associateBy { it.mac }
             sights.mapNotNull { s ->
                 val dev = deviceMap[s.mac] ?: return@mapNotNull null
-                if (!all && dev.category == DeviceCategory.ONCE) return@mapNotNull null
-                sightingToClusterMarker(s, dev.displayName, dev.category)
+                if (!all && dev.section == Section.TRANSIENT) return@mapNotNull null
+                sightingToClusterMarker(s, dev)
             }
         }
     }
 
-    private fun sightingToClusterMarker(
-        s: SightingEntity, name: String, category: DeviceCategory
-    ): ClusterMapMarker? {
+    private fun sightingToClusterMarker(s: SightingEntity, dev: DeviceEntity): ClusterMapMarker? {
         val lat = s.latitude ?: return null
         val lon = s.longitude ?: return null
         return ClusterMapMarker(
             id = s.mac,
             lat = lat,
             lon = lon,
-            title = name,
-            snippet = "${category.name} — ${s.mac}",
-            color = categoryColor(category),
+            title = dev.displayName,
+            snippet = "${dev.section.label} — ${s.mac}",
+            color = dev.section.color.toArgb(),
         )
     }
 
@@ -115,7 +112,6 @@ fun MapScreen(
             CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
         }
 
-        // Alle/Letzte toggle
         FilterChip(
             selected = showAll,
             onClick = { viewModel.showAll.value = !showAll },
@@ -126,6 +122,3 @@ fun MapScreen(
         )
     }
 }
-
-internal fun categoryColor(category: DeviceCategory): Int =
-    CATEGORIES[category]?.color?.toArgb() ?: DeviceColor.toArgb()

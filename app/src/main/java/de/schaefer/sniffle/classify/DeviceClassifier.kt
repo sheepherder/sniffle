@@ -1,21 +1,15 @@
 package de.schaefer.sniffle.classify
 
-import de.schaefer.sniffle.ble.ClassicDevice
-import de.schaefer.sniffle.ble.ParsedAdvert
-import de.schaefer.sniffle.data.DeviceCategory
 import de.schaefer.sniffle.decoder.DecodedDevice
 
 /**
- * Determines category for a device.
+ * Determines device facts for classification.
  *
- * Category flow:
- * - SENSOR: immediately if decoded with sensor data
- * - DEVICE: promoted from ONCE when seen 3+ times ≥20h apart AND has identity
- * - MYSTERY: promoted from ONCE when seen 3+ times ≥20h apart AND has NO identity
- * - ONCE: everything else (default)
+ * Facts stored in DB:
+ * - hasSensorData: true if decoded with sensor values (temperature, humidity, etc.)
+ * - promoted: true when seen 3+ times ≥20h apart (set by ScanProcessor)
  *
- * Promotion from ONCE is checked externally (needs DB access).
- * This class only handles initial classification and identity detection.
+ * Display section is derived at render time from hasSensorData + promoted + hasIdentity.
  */
 object DeviceClassifier {
 
@@ -44,24 +38,12 @@ object DeviceClassifier {
         0x0154 to "Sonos", 0x0002 to "Intel", 0x0386 to "Tile",
     )
 
-    /**
-     * Initial category for a newly discovered BLE device.
-     * SENSOR immediately if the decoder reports sensor data (temperature, humidity, etc.).
-     */
-    fun classifyBle(advert: ParsedAdvert, decoded: DecodedDevice?): DeviceCategory {
-        if (decoded?.hasSensorData == true) return DeviceCategory.SENSOR
-        return DeviceCategory.ONCE
-    }
+    /** Returns true if the decoder reports sensor data. */
+    fun hasSensorData(decoded: DecodedDevice?): Boolean =
+        decoded?.hasSensorData == true
 
     /**
-     * Initial category for a Classic BT device.
-     */
-    fun classifyClassic(device: ClassicDevice): DeviceCategory {
-        return DeviceCategory.ONCE
-    }
-
-    /**
-     * Check if device has enough identity to become DEVICE (vs MYSTERY) on promotion.
+     * Check if device has enough identity to be shown as DEVICE (vs MYSTERY).
      */
     fun hasIdentity(
         name: String?,
@@ -79,12 +61,6 @@ object DeviceClassifier {
         if (!deviceClassName.isNullOrBlank()) return true
         return false
     }
-
-    /**
-     * Determine promoted category when 3-day threshold is reached.
-     */
-    fun promotedCategory(hasIdentity: Boolean): DeviceCategory =
-        if (hasIdentity) DeviceCategory.DEVICE else DeviceCategory.MYSTERY
 
     /**
      * Try to guess device type from BLE name.
@@ -107,5 +83,4 @@ object DeviceClassifier {
         }
         return null
     }
-
 }

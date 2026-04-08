@@ -13,12 +13,10 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import de.schaefer.sniffle.data.Section
 import de.schaefer.sniffle.data.SightingEntity
-import de.schaefer.sniffle.ui.DeviceColor
 import de.schaefer.sniffle.ui.map.ClusterMap
 import de.schaefer.sniffle.ui.map.ClusterMapMarker
-import de.schaefer.sniffle.ui.map.categoryColor
-import de.schaefer.sniffle.data.DeviceCategory
 import de.schaefer.sniffle.util.formatTimestampLong
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -31,9 +29,9 @@ fun DetailMapScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     var showAll by remember { mutableStateOf(true) }
 
-    val category = state.device?.category
-    val allMarkers = remember(state.sightings, category) {
-        state.sightings.mapNotNull { it.toClusterMarker(category) }
+    val section = state.device?.section
+    val allMarkers = remember(state.sightings, section) {
+        state.sightings.mapNotNull { it.toClusterMarker(section) }
     }
     val markers = if (showAll) allMarkers else allMarkers.take(1)
 
@@ -71,7 +69,7 @@ fun DetailMapScreen(
     }
 }
 
-internal fun SightingEntity.toClusterMarker(category: DeviceCategory?): ClusterMapMarker? {
+internal fun SightingEntity.toClusterMarker(section: Section?): ClusterMapMarker? {
     val lat = latitude ?: return null
     val lon = longitude ?: return null
     return ClusterMapMarker(
@@ -80,6 +78,6 @@ internal fun SightingEntity.toClusterMarker(category: DeviceCategory?): ClusterM
         lon = lon,
         title = formatTimestampLong(timestamp),
         snippet = "$rssi dBm",
-        color = category?.let { categoryColor(it) } ?: DeviceColor.toArgb(),
+        color = (section?.color ?: Section.DEVICE.color).toArgb(),
     )
 }

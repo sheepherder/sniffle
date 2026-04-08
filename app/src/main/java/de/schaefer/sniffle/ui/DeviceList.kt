@@ -1,9 +1,11 @@
 package de.schaefer.sniffle.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
@@ -11,50 +13,21 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.background
-import androidx.compose.foundation.shape.RoundedCornerShape
-import de.schaefer.sniffle.data.DeviceCategory
 import de.schaefer.sniffle.data.DeviceEntity
+import de.schaefer.sniffle.data.Section
 import de.schaefer.sniffle.data.Transport
+import de.schaefer.sniffle.ui.scan.DisplayDevice
 import de.schaefer.sniffle.util.formatTimestamp
 import kotlin.math.max
 import kotlin.math.min
 
-val SensorColor = Color(0xFF4CAF50)
-val DeviceColor = Color(0xFF2196F3)
-val MysteryColor = Color(0xFF9C27B0)
-val OnceColor = Color(0xFF9E9E9E)
-
-data class CategoryInfo(val icon: String, val label: String, val color: Color)
-
-val CATEGORIES = mapOf(
-    DeviceCategory.SENSOR to CategoryInfo("📡", "Sensoren", SensorColor),
-    DeviceCategory.DEVICE to CategoryInfo("📱", "Geräte", DeviceColor),
-    DeviceCategory.MYSTERY to CategoryInfo("👻", "Mystery", MysteryColor),
-    DeviceCategory.ONCE to CategoryInfo("💨", "Flüchtige", OnceColor),
-)
-
-/**
- * Renders a full 4-category device list into a LazyListScope.
- * Used by both LiveScreen and HistoryScreen.
- *
- * @param liveMacs set of MACs currently live (for live indicator)
- * @param showRssi whether to show RSSI bars (live) or last-seen time (history)
- */
 fun LazyListScope.deviceListContent(
-    sensors: List<DeviceEntity>,
-    devices: List<DeviceEntity>,
-    mystery: List<DeviceEntity>,
-    once: List<DeviceEntity>,
-    liveMacs: Set<String>,
-    showRssi: Boolean,
-    liveRssi: Map<String, Int>,
-    liveValues: Map<String, Map<String, Any>>,
+    grouped: Map<Section, List<DisplayDevice>>,
     onceExpanded: Boolean,
     onToggleOnce: () -> Unit,
     onDeviceTap: (String) -> Unit,
@@ -72,54 +45,34 @@ fun LazyListScope.deviceListContent(
         }
     }
 
-    for (category in listOf(DeviceCategory.SENSOR, DeviceCategory.DEVICE, DeviceCategory.MYSTERY)) {
-        val list = when (category) {
-            DeviceCategory.SENSOR -> sensors
-            DeviceCategory.DEVICE -> devices
-            DeviceCategory.MYSTERY -> mystery
-            else -> emptyList()
-        }
-        if (list.isNotEmpty()) {
-            val info = CATEGORIES[category]!!
-            item(key = "header_$category") { CategoryHeader(info.icon, info.label, list.size, info.color) }
-            items(list, key = { "${category}_${it.mac}" }) { device ->
-                DeviceRow(
-                    device = device,
-                    isLive = device.mac in liveMacs,
-                    showRssi = showRssi,
-                    rssi = liveRssi[device.mac],
-                    values = liveValues[device.mac],
-                    onTap = onDeviceTap,
+    for (section in Section.entries) {
+        val sectionItems = grouped[section] ?: continue
+        if (section == Section.TRANSIENT) {
+            item(key = "header_transient") {
+                CollapsibleHeader(
+                    section = section,
+                    count = sectionItems.size,
+                    summary = buildOnceSummary(sectionItems),
+                    expanded = onceExpanded,
+                    onToggle = onToggleOnce,
                 )
+            }
+            if (onceExpanded) {
+                items(sectionItems, key = { "transient_${it.entity.mac}" }) { device ->
+                    DeviceCard(device, onDeviceTap)
+                }
+            }
+        } else {
+            item(key = "header_${section.name}") {
+                SectionHeader(section, sectionItems.size)
+            }
+            items(sectionItems, key = { "${section.name}_${it.entity.mac}" }) { device ->
+                DeviceCard(device, onDeviceTap)
             }
         }
     }
 
-    if (once.isNotEmpty()) {
-        item(key = "header_once") {
-            CollapsibleHeader(
-                count = once.size,
-                summary = buildOnceSummary(once),
-                expanded = onceExpanded,
-                onToggle = onToggleOnce,
-            )
-        }
-        if (onceExpanded) {
-            items(once, key = { "once_${it.mac}" }) { device ->
-                DeviceRow(
-                    device = device,
-                    isLive = device.mac in liveMacs,
-                    showRssi = showRssi,
-                    rssi = liveRssi[device.mac],
-                    values = liveValues[device.mac],
-                    onTap = onDeviceTap,
-                )
-            }
-        }
-    }
-
-    val total = sensors.size + devices.size + mystery.size + once.size
-    if (total == 0) {
+    if (grouped.isEmpty()) {
         item {
             Box(
                 modifier = Modifier.fillMaxWidth().padding(64.dp),
@@ -132,25 +85,25 @@ fun LazyListScope.deviceListContent(
 }
 
 @Composable
-fun CategoryHeader(icon: String, label: String, count: Int, color: Color) {
+fun SectionHeader(section: Section, count: Int) {
     Row(
         modifier = Modifier.padding(start = 16.dp, top = 20.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(icon, fontSize = 18.sp)
+        Text(section.icon, fontSize = 18.sp)
         Spacer(Modifier.width(8.dp))
         Text(
-            "$label ($count)",
+            "${section.label} ($count)",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            color = color
+            color = section.color
         )
     }
 }
 
 @Composable
 fun CollapsibleHeader(
-    count: Int, summary: String, expanded: Boolean, onToggle: () -> Unit
+    section: Section, count: Int, summary: String, expanded: Boolean, onToggle: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -159,13 +112,13 @@ fun CollapsibleHeader(
             .padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 4.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("💨", fontSize = 18.sp)
+            Text(section.icon, fontSize = 18.sp)
             Spacer(Modifier.width(8.dp))
             Text(
-                "Flüchtige ($count)",
+                "${section.label} ($count)",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = OnceColor
+                color = section.color
             )
             Spacer(Modifier.weight(1f))
             Icon(
@@ -186,128 +139,133 @@ fun CollapsibleHeader(
 }
 
 @Composable
-fun DeviceRow(
-    device: DeviceEntity,
-    isLive: Boolean,
-    showRssi: Boolean,
-    rssi: Int?,
-    values: Map<String, Any>?,
+fun DeviceCard(
+    device: DisplayDevice,
     onTap: (String) -> Unit,
 ) {
-    Column(
+    val section = device.entity.section
+
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onTap(device.mac) }
-            .padding(start = 24.dp, end = 16.dp, top = 6.dp, bottom = 6.dp)
+            .padding(horizontal = 12.dp, vertical = 3.dp)
+            .clickable { onTap(device.entity.mac) },
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp)
+        ),
+        shape = RoundedCornerShape(8.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            if (showRssi && rssi != null) {
-                RssiBar(rssi)
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    "${rssi}dBm",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontFamily = FontFamily.Monospace,
-                    modifier = Modifier.width(52.dp)
-                )
-                Spacer(Modifier.width(4.dp))
-            }
-
-            if (isLive && !showRssi) {
-                Text("●", color = SensorColor, fontSize = 10.sp)
-                Spacer(Modifier.width(6.dp))
-            }
-
-            val title = device.displayName
-            val transportTag = when (device.transport) {
-                Transport.CLASSIC -> " (BT)"
-                Transport.BOTH -> " (BLE+BT)"
-                else -> ""
-            }
-            Text(
-                "$title$transportTag",
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-            )
-        }
-
-        // Sensor values (from live data)
-        val displayValues = values ?: emptyMap()
-        if (displayValues.isNotEmpty()) {
-            Text(
-                displayValues.entries.joinToString("  ") { (k, v) ->
-                    val formatted = if (v is Double) "%.1f".format(v) else v.toString()
-                    "$k $formatted"
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = if (showRssi) 72.dp else 20.dp),
-                maxLines = 2,
-            )
-        }
-
-        // Extra info line
-        val extras = buildList {
-            device.brand?.let { add(it) }
-            device.company?.let { if (it != device.brand) add(it) }
-            device.appearance?.let { add(it) }
-            if (!showRssi && device.latestSeenMs > 0) {
-                add("Zuletzt ${formatTimestamp(device.latestSeenMs)}")
-            }
-        }
-        if (extras.isNotEmpty() && displayValues.isEmpty()) {
-            Text(
-                extras.joinToString(" • "),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = if (showRssi) 72.dp else 20.dp),
-            )
-        }
-
-        device.note?.let {
-            Text(
-                "📝 $it",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
+        Row(modifier = Modifier.height(IntrinsicSize.Min)) {
+            Box(
                 modifier = Modifier
-                    .padding(start = if (showRssi) 72.dp else 20.dp, top = 2.dp)
-                    .background(
-                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                        RoundedCornerShape(4.dp)
-                    )
-                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                    .width(4.dp)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(topStart = 8.dp, bottomStart = 8.dp))
+                    .background(section.color)
             )
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (device.isLive) {
+                        Text("●", color = Section.SENSOR.color, fontSize = 10.sp)
+                        Spacer(Modifier.width(6.dp))
+                    }
+
+                    val entity = device.entity
+                    val transportTag = when (entity.transport) {
+                        Transport.CLASSIC -> " (BT)"
+                        Transport.BOTH -> " (BLE+BT)"
+                        else -> ""
+                    }
+                    Text(
+                        "${entity.displayName}$transportTag",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        modifier = Modifier.weight(1f),
+                    )
+
+                    if (device.rssi != null) {
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "${device.rssi} dBm",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = rssiColor(device.rssi),
+                        )
+                    }
+                }
+
+                val displayValues = device.values
+                if (displayValues.isNotEmpty()) {
+                    Text(
+                        displayValues.entries.joinToString("  ") { (k, v) ->
+                            val formatted = if (v is Double) "%.1f".format(v) else v.toString()
+                            "$k $formatted"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                    )
+                } else {
+                    val entity = device.entity
+                    val extras = buildList {
+                        entity.brand?.let { add(it) }
+                        entity.company?.let { if (it != entity.brand) add(it) }
+                        entity.appearance?.let { add(it) }
+                        if (!device.isLive && entity.latestSeenMs > 0) {
+                            add("Zuletzt ${formatTimestamp(entity.latestSeenMs)}")
+                        }
+                    }
+                    if (extras.isNotEmpty()) {
+                        Text(
+                            extras.joinToString(" • "),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+
+                device.entity.note?.let {
+                    Text(
+                        "📝 $it",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier
+                            .padding(top = 2.dp)
+                            .background(
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                                RoundedCornerShape(4.dp)
+                            )
+                            .padding(horizontal = 8.dp, vertical = 2.dp),
+                    )
+                }
+            }
         }
     }
 }
 
-@Composable
-fun RssiBar(rssi: Int) {
+private fun rssiColor(rssi: Int): Color {
     val strength = max(0, min(4, (rssi + 100) / 15))
-    val color = when {
+    return when {
         strength >= 3 -> Color(0xFF4CAF50)
         strength >= 2 -> Color(0xFFFFC107)
         else -> Color(0xFFF44336)
     }
-    Text(
-        "█".repeat(strength) + "░".repeat(4 - strength),
-        color = color,
-        fontSize = 10.sp,
-        fontFamily = FontFamily.Monospace,
-        lineHeight = 12.sp,
-    )
 }
 
-fun buildOnceSummary(devices: List<DeviceEntity>): String {
+fun buildOnceSummary(devices: List<DisplayDevice>): String {
     val groups = mutableMapOf<String, Int>()
     for (d in devices) {
+        val entity = d.entity
         val label = when {
-            d.brand == "Apple" || d.company == "Apple" -> "Apple"
-            d.brand == "GENERIC" && d.model == "MS-CDP" -> "Microsoft"
-            d.company != null -> d.company
-            d.name != null || d.classicName != null -> "benannt"
+            entity.brand == "Apple" || entity.company == "Apple" -> "Apple"
+            entity.brand == "GENERIC" && entity.model == "MS-CDP" -> "Microsoft"
+            entity.company != null -> entity.company
+            entity.name != null || entity.classicName != null -> "benannt"
             else -> "?"
         }
         groups[label] = (groups[label] ?: 0) + 1
@@ -315,4 +273,3 @@ fun buildOnceSummary(devices: List<DeviceEntity>): String {
     return groups.entries.sortedByDescending { it.value }
         .joinToString(" • ") { "${it.value}× ${it.key}" }
 }
-

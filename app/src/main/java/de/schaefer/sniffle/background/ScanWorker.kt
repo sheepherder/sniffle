@@ -39,7 +39,7 @@ class ScanWorker(
 
     @SuppressLint("MissingPermission")
     override suspend fun doWork(): Result {
-        // Skip if LiveScreen is already scanning
+        // Skip if app is already scanning in foreground
         if ((applicationContext as App).isScanning) {
             Log.i("ScanWorker", "Skipping — app is in foreground")
             return Result.success()

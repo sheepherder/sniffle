@@ -2,7 +2,6 @@ package de.schaefer.sniffle.ui.navigation
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Radar
 import androidx.compose.material.icons.filled.Settings
@@ -21,21 +20,18 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import de.schaefer.sniffle.ui.detail.DetailMapScreen
 import de.schaefer.sniffle.ui.detail.DetailScreen
-import de.schaefer.sniffle.ui.history.HistoryScreen
 import de.schaefer.sniffle.ui.map.MapScreen
 import de.schaefer.sniffle.ui.onboarding.OnboardingScreen
 import de.schaefer.sniffle.ui.onboarding.needsOnboarding
-import de.schaefer.sniffle.ui.scan.LiveScreen
-import de.schaefer.sniffle.ui.scan.LiveViewModel
+import de.schaefer.sniffle.ui.scan.ScanScreen
+import de.schaefer.sniffle.ui.scan.ScanViewModel
 import de.schaefer.sniffle.ui.settings.SettingsScreen
 
 enum class Tab(val route: String, val label: String, val icon: ImageVector) {
-    Live("live", "Live", Icons.Default.Radar),
-    History("history", "Funde", Icons.Default.History),
+    Scan("scan", "Live", Icons.Default.Radar),
     Map("map", "Karte", Icons.Default.Map),
     Settings("settings", "Einstellungen", Icons.Default.Settings),
 }
@@ -68,9 +64,7 @@ fun SniffleApp(
     val currentDestination = navBackStackEntry?.destination
     val showBottomBar = currentDestination?.route?.startsWith("detail") != true
 
-    // Shared LiveViewModel so HistoryScreen can show live indicators
-    val liveViewModel: LiveViewModel = viewModel()
-    val liveState by liveViewModel.state.collectAsStateWithLifecycle()
+    val scanViewModel: ScanViewModel = viewModel()
 
     Scaffold(
         bottomBar = {
@@ -98,21 +92,13 @@ fun SniffleApp(
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Tab.Live.route,
+            startDestination = Tab.Scan.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(Tab.Live.route) {
-                LiveScreen(
+            composable(Tab.Scan.route) {
+                ScanScreen(
                     onDeviceTap = { mac -> navController.navigate("detail/$mac") },
-                    viewModel = liveViewModel,
-                )
-            }
-            composable(Tab.History.route) {
-                HistoryScreen(
-                    onDeviceTap = { mac -> navController.navigate("detail/$mac") },
-                    liveMacs = liveState.allMacs,
-                    liveRssi = liveState.rssiMap,
-                    liveValues = liveState.valuesMap,
+                    viewModel = scanViewModel,
                 )
             }
             composable(Tab.Map.route) {
@@ -121,7 +107,7 @@ fun SniffleApp(
                 )
             }
             composable(Tab.Settings.route) {
-                SettingsScreen(onScanSettingsChanged = { liveViewModel.restartScans() })
+                SettingsScreen(onScanSettingsChanged = { scanViewModel.restartScans() })
             }
             composable("detail/{mac}") { backStackEntry ->
                 val mac = backStackEntry.arguments?.getString("mac") ?: return@composable

@@ -8,8 +8,8 @@ import androidx.core.app.NotificationManagerCompat
 import de.schaefer.sniffle.App
 import de.schaefer.sniffle.MainActivity
 import de.schaefer.sniffle.R
-import de.schaefer.sniffle.data.DeviceCategory
 import de.schaefer.sniffle.data.DeviceEntity
+import de.schaefer.sniffle.data.Section
 
 object NotificationHelper {
 
@@ -27,22 +27,25 @@ object NotificationHelper {
     }
 
     fun notifyDevice(context: Context, device: DeviceEntity, values: String?) {
-        val title = when (device.category) {
-            DeviceCategory.SENSOR -> "Neuer Sensor: ${device.displayName}"
-            DeviceCategory.DEVICE -> "${device.displayName} regelmäßig in der Nähe"
-            DeviceCategory.MYSTERY -> "Unbekanntes Gerät ${device.mac} regelmäßig in der Nähe"
-            DeviceCategory.ONCE -> return // no notification for ONCE
+        val section = device.section
+        if (section == Section.TRANSIENT) return
+
+        val title = when (section) {
+            Section.SENSOR -> "Neuer Sensor: ${device.displayName}"
+            Section.DEVICE -> "${device.displayName} regelmäßig in der Nähe"
+            Section.MYSTERY -> "Unbekanntes Gerät ${device.mac} regelmäßig in der Nähe"
+            Section.TRANSIENT -> error("unreachable")
         }
 
-        val body = when (device.category) {
-            DeviceCategory.SENSOR -> values ?: "${device.brand ?: ""} ${device.model ?: ""}".trim()
-            DeviceCategory.DEVICE -> buildList {
+        val body = when (section) {
+            Section.SENSOR -> values ?: "${device.brand ?: ""} ${device.model ?: ""}".trim()
+            Section.DEVICE -> buildList {
                 device.brand?.let { add(it) }
                 device.company?.let { if (it != device.brand) add(it) }
                 device.appearance?.let { add(it) }
             }.joinToString(" • ").ifEmpty { device.mac }
-            DeviceCategory.MYSTERY -> "Seit 3+ Tagen gesehen, keine Identität"
-            DeviceCategory.ONCE -> return
+            Section.MYSTERY -> "Seit 3+ Tagen gesehen, keine Identität"
+            Section.TRANSIENT -> error("unreachable")
         }
 
         val notification = NotificationCompat.Builder(context, App.CHANNEL_DEVICES)

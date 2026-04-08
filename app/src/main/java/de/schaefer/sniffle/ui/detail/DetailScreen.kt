@@ -38,7 +38,7 @@ import com.patrykandpatrick.vico.core.common.data.ExtraStore
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import de.schaefer.sniffle.data.DeviceCategory
+import de.schaefer.sniffle.data.Section
 import de.schaefer.sniffle.data.SightingEntity
 import de.schaefer.sniffle.data.Transport
 import kotlinx.serialization.json.Json
@@ -73,7 +73,7 @@ fun DetailScreen(
                     }
                 },
                 actions = {
-                    if (device?.category != DeviceCategory.ONCE) {
+                    if (device?.section != Section.TRANSIENT) {
                         IconButton(onClick = { viewModel.delete() }) {
                             Icon(Icons.Default.Delete, "Löschen", tint = MaterialTheme.colorScheme.error)
                         }
@@ -93,8 +93,8 @@ fun DetailScreen(
             val geoSightings = state.sightings.filter { it.latitude != null && it.longitude != null }
             if (geoSightings.isNotEmpty()) {
                 item {
-                    val miniMarkers = remember(geoSightings, device?.category) {
-                        geoSightings.mapNotNull { it.toClusterMarker(device?.category) }
+                    val miniMarkers = remember(geoSightings, device?.section) {
+                        geoSightings.mapNotNull { it.toClusterMarker(device?.section) }
                     }
                     Card(
                         onClick = onOpenMap,
@@ -202,15 +202,9 @@ private fun DeviceInfo(device: de.schaefer.sniffle.data.DeviceEntity?, mac: Stri
         Text("Geräteinfo", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(8.dp))
 
-        val categoryLabel = when (device?.category) {
-            DeviceCategory.SENSOR -> "📡 Sensor"
-            DeviceCategory.DEVICE -> "📱 Gerät"
-            DeviceCategory.MYSTERY -> "👻 Mystery"
-            DeviceCategory.ONCE -> "💨 Flüchtig"
-            null -> "?"
-        }
-
-        InfoRow("Kategorie", categoryLabel)
+        val section = device?.section
+        val sectionLabel = if (section != null) "${section.icon} ${section.label}" else "?"
+        InfoRow("Kategorie", sectionLabel)
         InfoRow("MAC", mac)
         if (device?.name != null && device.classicName != null && device.name != device.classicName) {
             InfoRow("Name (BLE)", device.name)
