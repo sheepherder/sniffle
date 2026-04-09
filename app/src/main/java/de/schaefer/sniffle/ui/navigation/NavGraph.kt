@@ -23,6 +23,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.lifecycle.viewmodel.compose.viewModel
 import de.schaefer.sniffle.ui.detail.DetailMapScreen
 import de.schaefer.sniffle.ui.detail.DetailScreen
+import de.schaefer.sniffle.ui.detail.SensorChartScreen
 import de.schaefer.sniffle.ui.map.MapScreen
 import de.schaefer.sniffle.ui.onboarding.OnboardingScreen
 import de.schaefer.sniffle.ui.onboarding.needsOnboarding
@@ -115,12 +116,22 @@ fun SniffleApp(
                     mac = mac,
                     onBack = { navController.popBackStack() },
                     onOpenMap = { navController.navigate("detail/$mac/map") },
+                    onOpenChart = { key -> navController.navigate("detail/$mac/chart/$key") },
                 )
             }
             composable("detail/{mac}/map") { backStackEntry ->
                 val mac = backStackEntry.arguments?.getString("mac") ?: return@composable
                 DetailMapScreen(
                     mac = mac,
+                    onBack = { navController.popBackStack() },
+                )
+            }
+            composable("detail/{mac}/chart/{key}") { backStackEntry ->
+                val mac = backStackEntry.arguments?.getString("mac") ?: return@composable
+                val key = backStackEntry.arguments?.getString("key") ?: return@composable
+                SensorChartScreen(
+                    mac = mac,
+                    key = key,
                     onBack = { navController.popBackStack() },
                 )
             }

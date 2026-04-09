@@ -23,27 +23,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
-import com.patrykandpatrick.vico.compose.cartesian.axis.rememberStart
-import com.patrykandpatrick.vico.compose.cartesian.axis.rememberBottom
-import com.patrykandpatrick.vico.compose.cartesian.layer.rememberLineCartesianLayer
-import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
-import com.patrykandpatrick.vico.core.cartesian.axis.HorizontalAxis
-import com.patrykandpatrick.vico.core.cartesian.axis.VerticalAxis
-import com.patrykandpatrick.vico.core.cartesian.data.CartesianChartModelProducer
-import com.patrykandpatrick.vico.core.cartesian.data.CartesianLayerRangeProvider
-import com.patrykandpatrick.vico.core.cartesian.data.CartesianValueFormatter
-import com.patrykandpatrick.vico.core.cartesian.data.lineSeries
-import com.patrykandpatrick.vico.core.common.data.ExtraStore
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import de.schaefer.sniffle.data.Section
 import de.schaefer.sniffle.data.SightingEntity
 import de.schaefer.sniffle.data.Transport
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import de.schaefer.sniffle.ui.map.ClusterMap
 import de.schaefer.sniffle.util.formatTimestampLong
 
@@ -53,6 +35,7 @@ fun DetailScreen(
     mac: String,
     onBack: () -> Unit,
     onOpenMap: () -> Unit = {},
+    onOpenChart: (key: String) -> Unit = {},
     viewModel: DetailViewModel = viewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -163,11 +146,14 @@ fun DetailScreen(
                 DeviceInfo(device, mac)
             }
 
-            // Sensor chart
+            // Sensor charts
             val sensorSightings = state.sightings.filter { !it.decodedValues.isNullOrEmpty() }
             if (sensorSightings.isNotEmpty()) {
                 item {
-                    SensorChart(sensorSightings)
+                    SensorCharts(
+                        sightings = sensorSightings,
+                        onOpenChart = onOpenChart,
+                    )
                 }
             }
 
@@ -245,81 +231,6 @@ private fun InfoRow(label: String, value: String) {
 }
 
 @Composable
-private fun SensorChart(sightings: List<SightingEntity>) {
-    val allParsed = remember(sightings) {
-        sightings.take(50).reversed().map { it.timestamp to parseValues(it.decodedValues) }
-            .filter { it.second.isNotEmpty() }
-    }
-    if (allParsed.isEmpty()) return
-
-    // Collect all numeric keys across sightings
-    val keys = remember(allParsed) {
-        val seen = linkedSetOf<String>()
-        for ((_, vals) in allParsed) {
-            for ((k, v) in vals) {
-                if (v.toDoubleOrNull() != null) seen.add(k)
-            }
-        }
-        seen.toList().take(4)
-    }
-    if (keys.isEmpty()) return
-
-    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Text("Werte-Verlauf", style = MaterialTheme.typography.titleMedium)
-        Spacer(Modifier.height(8.dp))
-
-        val timeFormat = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
-        val fitDataRange = remember {
-            object : CartesianLayerRangeProvider {
-                override fun getMinY(minY: Double, maxY: Double, extraStore: ExtraStore) =
-                    if (minY == maxY) minY - 1 else minY
-                override fun getMaxY(minY: Double, maxY: Double, extraStore: ExtraStore) =
-                    if (minY == maxY) maxY + 1 else maxY
-            }
-        }
-
-        for (key in keys) {
-            val points = remember(allParsed, key) {
-                allParsed.mapNotNull { (ts, vals) ->
-                    vals[key]?.toDoubleOrNull()?.let { ts to it }
-                }
-            }
-            if (points.size < 2 || points.first().first == points.last().first) continue
-
-            Text(
-                key,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
-            )
-
-            val modelProducer = remember(key) { CartesianChartModelProducer() }
-            LaunchedEffect(points) {
-                modelProducer.runTransaction {
-                    lineSeries { series(x = points.map { it.first.toDouble() }, y = points.map { it.second }) }
-                }
-            }
-
-            val xFormatter = remember(points) {
-                CartesianValueFormatter { _, x, _ ->
-                    timeFormat.format(Date(x.toLong()))
-                }
-            }
-
-            CartesianChartHost(
-                chart = rememberCartesianChart(
-                    rememberLineCartesianLayer(rangeProvider = fitDataRange),
-                    startAxis = VerticalAxis.rememberStart(),
-                    bottomAxis = HorizontalAxis.rememberBottom(valueFormatter = xFormatter),
-                ),
-                modelProducer = modelProducer,
-                modifier = Modifier.fillMaxWidth().height(150.dp),
-            )
-        }
-    }
-}
-
-@Composable
 private fun SightingRow(sighting: SightingEntity) {
     val time = formatTimestampLong(sighting.timestamp)
     val values = parseValues(sighting.decodedValues)
@@ -355,15 +266,5 @@ private fun SightingRow(sighting: SightingEntity) {
                 modifier = Modifier.padding(start = 4.dp),
             )
         }
-    }
-}
-
-private fun parseValues(json: String?): Map<String, String> {
-    if (json.isNullOrEmpty()) return emptyMap()
-    return try {
-        val obj = Json.parseToJsonElement(json) as? JsonObject ?: return emptyMap()
-        obj.mapValues { it.value.jsonPrimitive.content }
-    } catch (_: Exception) {
-        emptyMap()
     }
 }

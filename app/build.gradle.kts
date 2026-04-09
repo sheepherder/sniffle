@@ -6,6 +6,13 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        allWarningsAsErrors.set(true)
+    }
+}
+
 android {
     namespace = "de.schaefer.sniffle"
     compileSdk = 36
@@ -37,16 +44,11 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-        allWarningsAsErrors = true
-    }
-
     lint {
         warningsAsErrors = true
         abortOnError = true
         checkDependencies = true
-        disable += "AndroidGradlePluginVersion" // staying on AGP 8.x, 9.x is too breaking
+        disable += "AndroidGradlePluginVersion" // AGP 9.1.0 stable since Mar 2026 — migration pending (requires Gradle 9.3+, built-in Kotlin)
     }
 
     buildFeatures {
