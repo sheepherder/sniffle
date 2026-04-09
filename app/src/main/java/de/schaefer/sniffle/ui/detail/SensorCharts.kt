@@ -1,6 +1,5 @@
 package de.schaefer.sniffle.ui.detail
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Fullscreen
@@ -11,7 +10,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
-import com.patrykandpatrick.vico.compose.cartesian.Scroll
+import com.patrykandpatrick.vico.compose.cartesian.VicoScrollState
+import com.patrykandpatrick.vico.compose.cartesian.VicoZoomState
 import com.patrykandpatrick.vico.compose.cartesian.Zoom
 import com.patrykandpatrick.vico.compose.cartesian.axis.HorizontalAxis
 import com.patrykandpatrick.vico.compose.cartesian.axis.VerticalAxis
@@ -32,15 +32,21 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/**
- * Parsed sensor data: list of (timestamp, key→value) pairs in chronological order.
- */
+private val MAX_ZOOM = Zoom.max(Zoom.fixed(50f), Zoom.Content)
+
+private val FIT_DATA_RANGE = object : CartesianLayerRangeProvider {
+    override fun getMinY(minY: Double, maxY: Double, extraStore: ExtraStore) =
+        if (minY == maxY) minY - 1 else minY
+    override fun getMaxY(minY: Double, maxY: Double, extraStore: ExtraStore) =
+        if (minY == maxY) maxY + 1 else maxY
+}
+
 internal data class ParsedSensorData(
     val entries: List<Pair<Long, Map<String, String>>>,
     val keys: List<String>,
     val baseTime: Long,
     val xStep: Double,
-    val timeFormat: SimpleDateFormat,
+    val timeFormatPattern: String,
 )
 
 internal fun parseSensorData(sightings: List<SightingEntity>): ParsedSensorData? {
@@ -63,17 +69,11 @@ internal fun parseSensorData(sightings: List<SightingEntity>): ParsedSensorData?
         .filter { it > 0.0 }
         .minOrNull() ?: 1.0
     val spanMs = entries.last().first - baseTime
-    val fmt = when {
-        spanMs > 86_400_000L -> SimpleDateFormat("dd.MM HH:mm", Locale.getDefault())
-        else -> SimpleDateFormat("HH:mm", Locale.getDefault())
-    }
+    val pattern = if (spanMs > 86_400_000L) "dd.MM HH:mm" else "HH:mm"
 
-    return ParsedSensorData(entries, keys, baseTime, xStep, fmt)
+    return ParsedSensorData(entries, keys, baseTime, xStep, pattern)
 }
 
-/**
- * All sensor charts, with shared scroll/zoom, shown inline in detail screen.
- */
 @Composable
 internal fun SensorCharts(
     sightings: List<SightingEntity>,
@@ -89,30 +89,28 @@ internal fun SensorCharts(
         )
         Spacer(Modifier.height(8.dp))
 
-        // Shared scroll/zoom state so all charts stay in sync
         val scrollState = rememberVicoScrollState(scrollEnabled = true)
         val zoomState = rememberVicoZoomState(
             initialZoom = Zoom.Content,
             minZoom = Zoom.Content,
-            maxZoom = remember { Zoom.max(Zoom.fixed(50f), Zoom.Content) },
+            maxZoom = MAX_ZOOM,
         )
 
         for (key in data.keys) {
-            SensorLineChart(
-                data = data,
-                key = key,
-                chartHeight = 150.dp,
-                scrollState = scrollState,
-                zoomState = zoomState,
-                onFullscreen = if (onOpenChart != null) {{ onOpenChart(key) }} else null,
-            )
+            key(key) {
+                SensorLineChart(
+                    data = data,
+                    key = key,
+                    chartHeight = 150.dp,
+                    scrollState = scrollState,
+                    zoomState = zoomState,
+                    onFullscreen = if (onOpenChart != null) {{ onOpenChart(key) }} else null,
+                )
+            }
         }
     }
 }
 
-/**
- * Single fullscreen chart for landscape mode.
- */
 @Composable
 internal fun SensorChartFullscreen(
     sightings: List<SightingEntity>,
@@ -124,13 +122,13 @@ internal fun SensorChartFullscreen(
     val zoomState = rememberVicoZoomState(
         initialZoom = Zoom.Content,
         minZoom = Zoom.Content,
-        maxZoom = remember { Zoom.max(Zoom.fixed(50f), Zoom.Content) },
+        maxZoom = MAX_ZOOM,
     )
 
     SensorLineChart(
         data = data,
         key = key,
-        chartHeight = null, // fill available space
+        chartHeight = null,
         scrollState = scrollState,
         zoomState = zoomState,
         onFullscreen = null,
@@ -142,8 +140,8 @@ private fun SensorLineChart(
     data: ParsedSensorData,
     key: String,
     chartHeight: Dp?,
-    scrollState: com.patrykandpatrick.vico.compose.cartesian.VicoScrollState,
-    zoomState: com.patrykandpatrick.vico.compose.cartesian.VicoZoomState,
+    scrollState: VicoScrollState,
+    zoomState: VicoZoomState,
     onFullscreen: (() -> Unit)?,
 ) {
     val points = remember(data.entries, key) {
@@ -187,20 +185,12 @@ private fun SensorLineChart(
         }
     }
 
-    val baseTime = data.baseTime
-    val timeFormat = data.timeFormat
-    val xFormatter = remember(baseTime, timeFormat) {
-        CartesianValueFormatter { _, x, _ ->
-            timeFormat.format(Date(x.toLong() + baseTime))
-        }
+    val timeFormat = remember(data.timeFormatPattern) {
+        SimpleDateFormat(data.timeFormatPattern, Locale.getDefault())
     }
-
-    val fitDataRange = remember {
-        object : CartesianLayerRangeProvider {
-            override fun getMinY(minY: Double, maxY: Double, extraStore: ExtraStore) =
-                if (minY == maxY) minY - 1 else minY
-            override fun getMaxY(minY: Double, maxY: Double, extraStore: ExtraStore) =
-                if (minY == maxY) maxY + 1 else maxY
+    val xFormatter = remember(data.baseTime, data.timeFormatPattern) {
+        CartesianValueFormatter { _, x, _ ->
+            timeFormat.format(Date(x.toLong() + data.baseTime))
         }
     }
 
@@ -212,7 +202,7 @@ private fun SensorLineChart(
 
     CartesianChartHost(
         chart = rememberCartesianChart(
-            rememberLineCartesianLayer(rangeProvider = fitDataRange),
+            rememberLineCartesianLayer(rangeProvider = FIT_DATA_RANGE),
             startAxis = VerticalAxis.rememberStart(),
             bottomAxis = HorizontalAxis.rememberBottom(valueFormatter = xFormatter),
             getXStep = { data.xStep },

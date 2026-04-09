@@ -44,7 +44,9 @@ fun SensorChartScreen(
             )
         },
     ) { padding ->
-        val sensorSightings = state.sightings.filter { !it.decodedValues.isNullOrEmpty() }
+        val sensorSightings = remember(state.sightings) {
+            state.sightings.filter { !it.decodedValues.isNullOrEmpty() }
+        }
         if (sensorSightings.isNotEmpty()) {
             Box(
                 modifier = Modifier

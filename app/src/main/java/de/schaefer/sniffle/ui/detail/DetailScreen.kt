@@ -66,6 +66,9 @@ fun DetailScreen(
         }
     ) { padding ->
         val focusManager = LocalFocusManager.current
+        val sensorSightings = remember(state.sightings) {
+            state.sightings.filter { !it.decodedValues.isNullOrEmpty() }
+        }
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -147,7 +150,6 @@ fun DetailScreen(
             }
 
             // Sensor charts
-            val sensorSightings = state.sightings.filter { !it.decodedValues.isNullOrEmpty() }
             if (sensorSightings.isNotEmpty()) {
                 item {
                     SensorCharts(
