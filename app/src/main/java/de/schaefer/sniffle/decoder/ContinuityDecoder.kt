@@ -1,7 +1,7 @@
 package de.schaefer.sniffle.decoder
 
 import de.schaefer.sniffle.ble.ParsedAdvert
-import de.schaefer.sniffle.util.batteryBitsToLabel
+
 import de.schaefer.sniffle.util.readUint16BE
 
 /**
@@ -174,13 +174,6 @@ object ContinuityDecoder : Decoder {
 
     private fun decodeFindMy(data: ByteArray): DecodedDevice {
         val values = mutableMapOf<String, Any>()
-
-        if (data.isNotEmpty()) {
-            val statusByte = data[0].toInt() and 0xFF
-            values["ownerNearby"] = statusByte and 0x01 != 0
-
-            values["battery"] = batteryBitsToLabel((statusByte shr 6) and 0x03)
-        }
 
         return DecodedDevice(
             brand = "Apple",

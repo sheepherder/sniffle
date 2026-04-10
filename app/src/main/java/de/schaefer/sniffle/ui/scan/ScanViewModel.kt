@@ -40,6 +40,7 @@ data class DisplayDevice(
     val rssi: Int? = null,
     val values: Map<String, Any> = emptyMap(),
     val pingCount: Int = 0,
+    val lastPingMs: Long = 0,
 )
 
 data class ScanState(
@@ -69,6 +70,7 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
     private val liveData = mutableMapOf<String, LiveInfo>()
 
     private var refreshJob: Job? = null
+    private var lastRefreshMs = 0L
     private var locationCallback: LocationCallback? = null
     private var bleJob: Job? = null
     private var classicJob: Job? = null
@@ -171,10 +173,18 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun scheduleRefresh() {
-        refreshJob?.cancel()
-        refreshJob = viewModelScope.launch {
-            delay(250)
+        val now = System.currentTimeMillis()
+        val elapsed = now - lastRefreshMs
+        if (elapsed >= 100) {
+            refreshJob?.cancel()
+            lastRefreshMs = now
             buildState()
+        } else if (refreshJob == null || refreshJob?.isActive != true) {
+            refreshJob = viewModelScope.launch {
+                delay(100 - elapsed)
+                lastRefreshMs = System.currentTimeMillis()
+                buildState()
+            }
         }
     }
 
@@ -195,6 +205,7 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
                     rssi = live?.rssi,
                     values = live?.values ?: emptyMap(),
                     pingCount = live?.pingCount ?: 0,
+                    lastPingMs = live?.lastPingMs ?: 0,
                 ))
             }
             for ((mac, live) in liveData) {
@@ -205,6 +216,7 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
                     rssi = live.rssi,
                     values = live.values,
                     pingCount = live.pingCount,
+                    lastPingMs = live.lastPingMs,
                 ))
             }
         }

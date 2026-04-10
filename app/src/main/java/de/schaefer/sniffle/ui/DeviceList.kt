@@ -193,7 +193,23 @@ fun DeviceCard(
                     )
 
                     if (device.rssi != null) {
+                        val agoSec = if (device.lastPingMs > 0)
+                            ((System.currentTimeMillis() - device.lastPingMs) / 1000).toInt() else 0
                         Spacer(Modifier.width(8.dp))
+                        if (agoSec > 0) {
+                            Text(
+                                "${agoSec}s",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Spacer(Modifier.width(6.dp))
+                        }
+                        Text(
+                            "×${device.pingCount}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.width(6.dp))
                         Text(
                             "${device.rssi} dBm",
                             style = MaterialTheme.typography.labelSmall,
