@@ -30,7 +30,7 @@ object AdvertParser {
 
         val mfgData = mutableMapOf<Int, ByteArray>()
         record?.manufacturerSpecificData?.let { sparse ->
-            @Suppress("UseKtx") for (i in 0 until sparse.size()) {
+            for (i in 0 until sparse.size()) {
                 mfgData[sparse.keyAt(i)] = sparse.valueAt(i)
             }
         }
