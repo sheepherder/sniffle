@@ -1,6 +1,5 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
@@ -48,7 +47,6 @@ android {
         warningsAsErrors = true
         abortOnError = true
         checkDependencies = true
-        disable += "AndroidGradlePluginVersion" // AGP 9.1.0 stable since Mar 2026 — migration pending (requires Gradle 9.3+, built-in Kotlin)
     }
 
     buildFeatures {
@@ -58,11 +56,11 @@ android {
     externalNativeBuild {
         cmake {
             path = file("src/main/cpp/CMakeLists.txt")
-            version = "3.22.1"
+            version = "3.31.6"
         }
     }
 
-    ndkVersion = "27.0.12077973"
+    ndkVersion = "29.0.14206865"
 }
 
 dependencies {
