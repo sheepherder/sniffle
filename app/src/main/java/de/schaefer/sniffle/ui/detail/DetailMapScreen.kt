@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import de.schaefer.sniffle.data.Section
+import de.schaefer.sniffle.ui.theme.color
 import de.schaefer.sniffle.data.SightingEntity
 import de.schaefer.sniffle.ui.map.ClusterMap
 import de.schaefer.sniffle.ui.map.ClusterMapMarker

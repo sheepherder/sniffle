@@ -43,26 +43,6 @@ object DeviceClassifier {
         decoded?.hasSensorData == true
 
     /**
-     * Check if device has enough identity to be shown as DEVICE (vs MYSTERY).
-     */
-    fun hasIdentity(
-        name: String?,
-        ouiVendor: String?,
-        appearance: String?,
-        serviceHints: List<String>,
-        company: String?,
-        deviceClassName: String?,
-    ): Boolean {
-        if (!name.isNullOrBlank()) return true
-        if (!ouiVendor.isNullOrBlank()) return true
-        if (!appearance.isNullOrBlank()) return true
-        if (serviceHints.isNotEmpty()) return true
-        if (!company.isNullOrBlank()) return true
-        if (!deviceClassName.isNullOrBlank()) return true
-        return false
-    }
-
-    /**
      * Try to guess device type from BLE name.
      */
     fun guessTypeFromName(name: String?): String? {

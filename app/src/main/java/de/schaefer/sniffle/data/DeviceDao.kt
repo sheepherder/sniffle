@@ -91,6 +91,9 @@ interface DeviceDao {
     @Query("UPDATE devices SET promoted = 1, notified = 0 WHERE mac = :mac")
     suspend fun setPromoted(mac: String)
 
+    @Query("UPDATE devices SET notified = 1 WHERE mac = :mac")
+    suspend fun markNotified(mac: String)
+
     @Query("DELETE FROM devices WHERE mac = :mac")
     suspend fun deleteDevice(mac: String)
 
@@ -123,3 +126,8 @@ interface DeviceDao {
     """)
     fun observeLatestGeoSightings(): Flow<List<SightingEntity>>
 }
+
+private const val STALE_RETENTION_MS = 90L * 24 * 60 * 60 * 1000
+
+suspend fun DeviceDao.deleteStale() =
+    deleteStaleOnce(System.currentTimeMillis() - STALE_RETENTION_MS)

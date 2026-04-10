@@ -19,6 +19,7 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
 import de.schaefer.sniffle.App
+import de.schaefer.sniffle.data.deleteStale
 import de.schaefer.sniffle.ble.AdvertParser
 import de.schaefer.sniffle.ble.ClassicDevice
 import de.schaefer.sniffle.ble.ClassicScanner
@@ -64,7 +65,13 @@ class ScanWorker(
 
         // Get GPS with timeout
         val loc = withTimeoutOrNull(3_000L) { getLocation() }
-        val processor = ScanProcessor(dao, loc?.latitude, loc?.longitude, persistIntervalMs = 0)
+        val notifications = prefs.notifications
+        val processor = ScanProcessor(
+            dao, loc?.latitude, loc?.longitude, persistIntervalMs = 0,
+            onNotify = if (notifications) {{ device, values ->
+                NotificationHelper.notifyDevice(applicationContext, device, values)
+            }} else null,
+        )
 
         Log.i("ScanWorker", "Starting scan: ble=$bleScan classic=$classicScan duration=${durationMs}ms")
 
@@ -145,7 +152,7 @@ class ScanWorker(
         classicConsumer.join()
 
         // Cleanup
-        dao.deleteStaleOnce(System.currentTimeMillis() - 90L * 24 * 60 * 60 * 1000)
+        dao.deleteStale()
 
         val summary = formatScanSummary(
             processor.uniqueCount, processor.sensorCount.get(), processor.newDeviceCount.get(),

@@ -34,9 +34,10 @@ data class ProcessedDevice(
 
 class ScanProcessor(
     private val dao: DeviceDao,
-    @Volatile var latitude: Double? = null,
-    @Volatile var longitude: Double? = null,
+    @Volatile internal var latitude: Double? = null,
+    @Volatile internal var longitude: Double? = null,
     private val persistIntervalMs: Long = 30_000L,
+    private val onNotify: (suspend (device: DeviceEntity, values: String?) -> Unit)? = null,
 ) {
     val newDeviceCount = AtomicInteger()
     val sensorCount = AtomicInteger()
@@ -83,8 +84,13 @@ class ScanProcessor(
         if (decoded?.hasSensorData == true) sensorCount.incrementAndGet()
         if (existing == null && hasSensorData) newDeviceCount.incrementAndGet()
 
-        val (finalEntity, wasPromoted) = persistAndPromote(advert.mac, merged, existing == null, nowMs) {
-            persistSighting(advert.mac, advert.rssi, decoded)
+        val valuesJson by lazy {
+            decoded?.values?.takeIf { it.isNotEmpty() }?.let { vals ->
+                try { Json.encodeToString(vals.mapValues { it.value.toString() }) } catch (_: Exception) { null }
+            }
+        }
+        val (finalEntity, wasPromoted) = persistAndPromote(advert.mac, merged, existing == null, nowMs, { valuesJson }) {
+            persistSighting(advert.mac, advert.rssi, valuesJson)
         }
 
         return ProcessedDevice(
@@ -128,7 +134,7 @@ class ScanProcessor(
             notified = existing?.notified ?: false,
         )
 
-        val (finalEntity, wasPromoted) = persistAndPromote(device.mac, merged, existing == null, nowMs) {
+        val (finalEntity, wasPromoted) = persistAndPromote(device.mac, merged, existing == null, nowMs, { null }) {
             persistSighting(device.mac, device.rssi, null)
         }
 
@@ -146,6 +152,7 @@ class ScanProcessor(
 
     private suspend fun persistAndPromote(
         mac: String, merged: DeviceEntity, isNew: Boolean, nowMs: Long,
+        encodeValues: () -> String?,
         sighting: suspend () -> Unit,
     ): Pair<DeviceEntity, Boolean> {
         var wasPromoted = false
@@ -158,7 +165,16 @@ class ScanProcessor(
             }
         }
         val finalEntity = if (wasPromoted) merged.copy(promoted = true) else merged
-        knownDevices[mac] = finalEntity
+
+        // Mark notified for new sensors or promoted devices (once per device)
+        // wasPromoted is unconditional because setPromoted already reset notified=0
+        val shouldMark = wasPromoted || (merged.hasSensorData && !merged.notified)
+        if (shouldMark) {
+            dao.markNotified(mac)
+            onNotify?.invoke(finalEntity, encodeValues())
+        }
+
+        knownDevices[mac] = if (shouldMark) finalEntity.copy(notified = true) else finalEntity
         return finalEntity to wasPromoted
     }
 
@@ -214,10 +230,7 @@ class ScanProcessor(
         existing: DeviceEntity?, decoded: DecodedDevice?,
     ): Boolean = existing?.hasSensorData == true || DeviceClassifier.hasSensorData(decoded)
 
-    private suspend fun persistSighting(mac: String, rssi: Int, decoded: DecodedDevice?) {
-        val valuesJson = decoded?.values?.takeIf { it.isNotEmpty() }?.let { vals ->
-            try { Json.encodeToString(vals.mapValues { it.value.toString() }) } catch (_: Exception) { null }
-        }
+    private suspend fun persistSighting(mac: String, rssi: Int, valuesJson: String?) {
         try {
             dao.insertSighting(SightingEntity(
                 mac = mac, timestamp = System.currentTimeMillis(),

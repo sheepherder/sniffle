@@ -18,6 +18,7 @@ import de.schaefer.sniffle.ble.ScanProcessor
 import de.schaefer.sniffle.classify.FastPairLookup
 import de.schaefer.sniffle.classify.OuiLookup
 import de.schaefer.sniffle.data.DeviceEntity
+import de.schaefer.sniffle.data.deleteStale
 import de.schaefer.sniffle.data.Section
 import de.schaefer.sniffle.data.Transport
 import de.schaefer.sniffle.data.includesBle
@@ -106,7 +107,7 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
         startLocationUpdates()
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
-                dao.deleteStaleOnce(System.currentTimeMillis() - 90L * 24 * 60 * 60 * 1000)
+                dao.deleteStale()
             }
             restartScans()
         }

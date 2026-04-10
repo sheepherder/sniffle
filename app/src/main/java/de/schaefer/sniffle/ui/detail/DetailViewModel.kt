@@ -16,7 +16,10 @@ data class DetailState(
     val sightings: List<SightingEntity> = emptyList(),
     val note: String = "",
     val deleted: Boolean = false,
-)
+) {
+    val sensorSightings: List<SightingEntity> =
+        sightings.filter { !it.decodedValues.isNullOrEmpty() }
+}
 
 @OptIn(FlowPreview::class)
 class DetailViewModel(

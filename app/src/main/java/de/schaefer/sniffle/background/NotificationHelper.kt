@@ -13,8 +13,6 @@ import de.schaefer.sniffle.data.Section
 
 object NotificationHelper {
 
-    private var nextId = 1000
-
     private fun openAppIntent(context: Context, requestCode: Int, mac: String? = null): PendingIntent {
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
@@ -48,17 +46,18 @@ object NotificationHelper {
             Section.TRANSIENT -> error("unreachable")
         }
 
+        val notificationId = device.mac.hashCode() and Int.MAX_VALUE
         val notification = NotificationCompat.Builder(context, App.CHANNEL_DEVICES)
             .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
             .setContentTitle(title)
             .setContentText(body)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
-            .setContentIntent(openAppIntent(context, nextId, device.mac))
+            .setContentIntent(openAppIntent(context, notificationId, device.mac))
             .build()
 
         try {
-            NotificationManagerCompat.from(context).notify(nextId++, notification)
+            NotificationManagerCompat.from(context).notify(notificationId, notification)
         } catch (_: SecurityException) {
             // POST_NOTIFICATIONS not granted
         }

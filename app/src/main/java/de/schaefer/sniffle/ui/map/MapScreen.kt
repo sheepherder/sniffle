@@ -23,6 +23,7 @@ import com.google.android.gms.tasks.CancellationTokenSource
 import de.schaefer.sniffle.App
 import de.schaefer.sniffle.data.DeviceEntity
 import de.schaefer.sniffle.data.Section
+import de.schaefer.sniffle.ui.theme.color
 import de.schaefer.sniffle.data.SightingEntity
 import kotlinx.coroutines.flow.*
 import org.osmdroid.util.GeoPoint

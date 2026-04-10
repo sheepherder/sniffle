@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import de.schaefer.sniffle.data.DeviceEntity
 import de.schaefer.sniffle.data.Section
+import de.schaefer.sniffle.ui.theme.color
 import de.schaefer.sniffle.data.Transport
 import de.schaefer.sniffle.ui.scan.DisplayDevice
 import de.schaefer.sniffle.util.formatTimestamp
@@ -263,7 +264,6 @@ fun buildOnceSummary(devices: List<DisplayDevice>): String {
         val entity = d.entity
         val label = when {
             entity.brand == "Apple" || entity.company == "Apple" -> "Apple"
-            entity.brand == "GENERIC" && entity.model == "MS-CDP" -> "Microsoft"
             entity.company != null -> entity.company
             entity.name != null || entity.classicName != null -> "benannt"
             else -> "?"

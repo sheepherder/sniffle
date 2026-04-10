@@ -14,13 +14,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.toRoute
 import de.schaefer.sniffle.ui.detail.DetailMapScreen
 import de.schaefer.sniffle.ui.detail.DetailScreen
 import de.schaefer.sniffle.ui.detail.SensorChartScreen
@@ -30,11 +31,19 @@ import de.schaefer.sniffle.ui.onboarding.needsOnboarding
 import de.schaefer.sniffle.ui.scan.ScanScreen
 import de.schaefer.sniffle.ui.scan.ScanViewModel
 import de.schaefer.sniffle.ui.settings.SettingsScreen
+import kotlinx.serialization.Serializable
 
-enum class Tab(val route: String, val label: String, val icon: ImageVector) {
-    Scan("scan", "Live", Icons.Default.Radar),
-    Map("map", "Karte", Icons.Default.Map),
-    Settings("settings", "Einstellungen", Icons.Default.Settings),
+@Serializable object ScanRoute
+@Serializable object MapRoute
+@Serializable object SettingsRoute
+@Serializable data class DetailRoute(val mac: String)
+@Serializable data class DetailMapRoute(val mac: String)
+@Serializable data class DetailChartRoute(val mac: String, val key: String)
+
+enum class Tab(val route: Any, val label: String, val icon: ImageVector) {
+    Scan(ScanRoute, "Live", Icons.Default.Radar),
+    Map(MapRoute, "Karte", Icons.Default.Map),
+    Settings(SettingsRoute, "Einstellungen", Icons.Default.Settings),
 }
 
 @Composable
@@ -54,7 +63,7 @@ fun SniffleApp(
 
     LaunchedEffect(deepLinkMac) {
         if (deepLinkMac != null) {
-            navController.navigate("detail/$deepLinkMac") {
+            navController.navigate(DetailRoute(mac = deepLinkMac)) {
                 launchSingleTop = true
             }
             onDeepLinkConsumed()
@@ -63,7 +72,9 @@ fun SniffleApp(
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
-    val showBottomBar = currentDestination?.route?.startsWith("detail") != true
+    val showBottomBar = currentDestination?.let { dest ->
+        !dest.hasRoute<DetailRoute>() && !dest.hasRoute<DetailMapRoute>() && !dest.hasRoute<DetailChartRoute>()
+    } ?: true
 
     val scanViewModel: ScanViewModel = viewModel()
 
@@ -75,7 +86,7 @@ fun SniffleApp(
                         NavigationBarItem(
                             icon = { Icon(tab.icon, contentDescription = tab.label) },
                             label = { Text(tab.label) },
-                            selected = currentDestination?.hierarchy?.any { it.route == tab.route } == true,
+                            selected = currentDestination?.hasRoute(tab.route::class) == true,
                             onClick = {
                                 navController.navigate(tab.route) {
                                     popUpTo(navController.graph.findStartDestination().id) {
@@ -93,45 +104,44 @@ fun SniffleApp(
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Tab.Scan.route,
+            startDestination = ScanRoute,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(Tab.Scan.route) {
+            composable<ScanRoute> {
                 ScanScreen(
-                    onDeviceTap = { mac -> navController.navigate("detail/$mac") },
+                    onDeviceTap = { mac -> navController.navigate(DetailRoute(mac = mac)) },
                     viewModel = scanViewModel,
                 )
             }
-            composable(Tab.Map.route) {
+            composable<MapRoute> {
                 MapScreen(
-                    onMarkerTap = { mac -> navController.navigate("detail/$mac") }
+                    onMarkerTap = { mac -> navController.navigate(DetailRoute(mac = mac)) }
                 )
             }
-            composable(Tab.Settings.route) {
+            composable<SettingsRoute> {
                 SettingsScreen(onScanSettingsChanged = { scanViewModel.restartScans() })
             }
-            composable("detail/{mac}") { backStackEntry ->
-                val mac = backStackEntry.arguments?.getString("mac") ?: return@composable
+            composable<DetailRoute> { backStackEntry ->
+                val route = backStackEntry.toRoute<DetailRoute>()
                 DetailScreen(
-                    mac = mac,
+                    mac = route.mac,
                     onBack = { navController.popBackStack() },
-                    onOpenMap = { navController.navigate("detail/$mac/map") },
-                    onOpenChart = { key -> navController.navigate("detail/$mac/chart/$key") },
+                    onOpenMap = { navController.navigate(DetailMapRoute(mac = route.mac)) },
+                    onOpenChart = { key -> navController.navigate(DetailChartRoute(mac = route.mac, key = key)) },
                 )
             }
-            composable("detail/{mac}/map") { backStackEntry ->
-                val mac = backStackEntry.arguments?.getString("mac") ?: return@composable
+            composable<DetailMapRoute> { backStackEntry ->
+                val route = backStackEntry.toRoute<DetailMapRoute>()
                 DetailMapScreen(
-                    mac = mac,
+                    mac = route.mac,
                     onBack = { navController.popBackStack() },
                 )
             }
-            composable("detail/{mac}/chart/{key}") { backStackEntry ->
-                val mac = backStackEntry.arguments?.getString("mac") ?: return@composable
-                val key = backStackEntry.arguments?.getString("key") ?: return@composable
+            composable<DetailChartRoute> { backStackEntry ->
+                val route = backStackEntry.toRoute<DetailChartRoute>()
                 SensorChartScreen(
-                    mac = mac,
-                    key = key,
+                    mac = route.mac,
+                    key = route.key,
                     onBack = { navController.popBackStack() },
                 )
             }

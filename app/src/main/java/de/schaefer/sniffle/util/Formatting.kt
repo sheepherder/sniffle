@@ -4,14 +4,18 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private val shortFormat = SimpleDateFormat("dd.MM. HH:mm:ss", Locale.GERMAN)
-private val longFormat = SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMAN)
+private val shortFormat = object : ThreadLocal<SimpleDateFormat>() {
+    override fun initialValue() = SimpleDateFormat("dd.MM. HH:mm:ss", Locale.GERMAN)
+}
+private val longFormat = object : ThreadLocal<SimpleDateFormat>() {
+    override fun initialValue() = SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMAN)
+}
 
 fun formatTimestamp(ms: Long): String =
-    if (ms == 0L) "?" else shortFormat.format(Date(ms))
+    if (ms == 0L) "?" else shortFormat.get()!!.format(Date(ms))
 
 fun formatTimestampLong(ms: Long): String =
-    if (ms == 0L) "?" else longFormat.format(Date(ms))
+    if (ms == 0L) "?" else longFormat.get()!!.format(Date(ms))
 
 fun formatScanSummary(uniqueDevices: Int, sensors: Int, newPromoted: Int): String =
     buildList {

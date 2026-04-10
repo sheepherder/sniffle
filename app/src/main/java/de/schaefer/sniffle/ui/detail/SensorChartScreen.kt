@@ -44,17 +44,14 @@ fun SensorChartScreen(
             )
         },
     ) { padding ->
-        val sensorSightings = remember(state.sightings) {
-            state.sightings.filter { !it.decodedValues.isNullOrEmpty() }
-        }
-        if (sensorSightings.isNotEmpty()) {
+        if (state.sensorSightings.isNotEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
             ) {
                 SensorChartFullscreen(
-                    sightings = sensorSightings,
+                    sightings = state.sensorSightings,
                     key = key,
                 )
             }
