@@ -103,7 +103,7 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
 
     @SuppressLint("MissingPermission")
     fun startScanning() {
-        (getApplication<Application>() as App).isScanning = true
+        (getApplication<Application>() as App).isScanningStartedMs = System.currentTimeMillis()
         startLocationUpdates()
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
@@ -254,7 +254,7 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     override fun onCleared() {
-        (getApplication<Application>() as App).isScanning = false
+        (getApplication<Application>() as App).isScanningStartedMs = 0
         locationCallback?.let { locationClient.removeLocationUpdates(it) }
         super.onCleared()
     }

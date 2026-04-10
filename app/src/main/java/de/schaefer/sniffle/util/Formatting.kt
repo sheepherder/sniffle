@@ -1,5 +1,8 @@
 package de.schaefer.sniffle.util
 
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -23,3 +26,13 @@ fun formatScanSummary(uniqueDevices: Int, sensors: Int, newPromoted: Int): Strin
         if (sensors > 0) add("$sensors davon Sensoren")
         if (newPromoted > 0) add("$newPromoted neu eingestuft")
     }.joinToString(", ")
+
+fun parseValues(json: String?): Map<String, String> {
+    if (json.isNullOrEmpty()) return emptyMap()
+    return try {
+        val obj = Json.parseToJsonElement(json) as? JsonObject ?: return emptyMap()
+        obj.mapValues { it.value.jsonPrimitive.content }
+    } catch (_: Exception) {
+        emptyMap()
+    }
+}

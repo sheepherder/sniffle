@@ -3,14 +3,13 @@ package de.schaefer.sniffle.ui.detail
 import android.app.Activity
 import android.content.pm.ActivityInfo
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import de.schaefer.sniffle.ui.SniffleTopBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,14 +33,7 @@ fun SensorChartScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(key, maxLines = 1) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Zurück")
-                    }
-                },
-            )
+            SniffleTopBar(title = key, onBack = onBack)
         },
     ) { padding ->
         if (state.sensorSightings.isNotEmpty()) {

@@ -43,7 +43,7 @@ object EddystoneDecoder : Decoder {
             append(scheme)
             for (i in 3 until d.size) {
                 val b = d[i].toInt() and 0xFF
-                append(URL_CODES[b] ?: b.toChar().toString())
+                append(URL_CODES[b] ?: if (b in 0x20..0x7E) b.toChar().toString() else "")
             }
         }
         return DecodedDevice(
@@ -55,6 +55,7 @@ object EddystoneDecoder : Decoder {
     private fun decodeTlm(d: ByteArray): DecodedDevice? {
         if (d.size < 14 || (d[1].toInt() and 0xFF) != 0) return null
         val batteryMv = d.readUint16BE(2)
+        // 8.8 two's complement fixed-point: always add fractional part
         val temp = d[4].toInt() + (d[5].toInt() and 0xFF) / 256.0
         val advCount = d.readUint32BE(6)
         val secCount = d.readUint32BE(10)

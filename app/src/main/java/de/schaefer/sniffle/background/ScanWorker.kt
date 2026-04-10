@@ -132,24 +132,29 @@ class ScanWorker(
             }
         }
 
-        // Wait for scan duration
-        delay(durationMs)
+        try {
+            // Wait for scan duration
+            delay(durationMs)
+        } finally {
+            // Stop scans (also runs on cancellation)
+            if (bleCallback != null) {
+                try { btManager?.adapter?.bluetoothLeScanner?.stopScan(bleCallback) } catch (_: Exception) {}
+            }
+            bleChannel.close()
 
-        // Stop scans
-        if (bleCallback != null) {
-            btManager?.adapter?.bluetoothLeScanner?.stopScan(bleCallback)
+            if (classicReceiver != null) {
+                try {
+                    btManager?.adapter?.cancelDiscovery()
+                    applicationContext.unregisterReceiver(classicReceiver)
+                } catch (_: Exception) {}
+            }
+            classicChannel.close()
         }
-        bleChannel.close()
 
-        if (classicReceiver != null) {
-            btManager?.adapter?.cancelDiscovery()
-            applicationContext.unregisterReceiver(classicReceiver)
-        }
-        classicChannel.close()
-
-        // Wait for processing to finish
+        // Wait for consumers to drain remaining buffered items, then clean up scope
         bleConsumer.join()
         classicConsumer.join()
+        scope.cancel()
 
         // Cleanup
         dao.deleteStale()

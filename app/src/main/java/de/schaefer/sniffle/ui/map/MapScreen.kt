@@ -33,13 +33,16 @@ class FullMapViewModel(application: Application) : AndroidViewModel(application)
     private var locationCts = CancellationTokenSource()
 
     val currentLocation = MutableStateFlow<GeoPoint?>(null)
-    val showAll = MutableStateFlow(false)
+    private val _showAll = MutableStateFlow(false)
+    val showAll: StateFlow<Boolean> = _showAll
+
+    fun toggleShowAll() { _showAll.value = !_showAll.value }
 
     private val devices = dao.observeAllDevices()
         .shareIn(viewModelScope, SharingStarted.WhileSubscribed(), replay = 1)
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    val markers: Flow<List<ClusterMapMarker>> = showAll.flatMapLatest { all ->
+    val markers: Flow<List<ClusterMapMarker>> = _showAll.flatMapLatest { all ->
         val sightings = if (all) dao.observeAllGeoSightings() else dao.observeLatestGeoSightings()
         combine(devices, sightings) { devs, sights ->
             val deviceMap = devs.associateBy { it.mac }
@@ -113,10 +116,9 @@ fun MapScreen(
             CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
         }
 
-        FilterChip(
-            selected = showAll,
-            onClick = { viewModel.showAll.value = !showAll },
-            label = { Text(if (showAll) "Alle" else "Letzte") },
+        ShowAllChip(
+            showAll = showAll,
+            onClick = { viewModel.toggleShowAll() },
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .padding(12.dp),

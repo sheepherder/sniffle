@@ -120,8 +120,10 @@ fun OnboardingScreen(onComplete: () -> Unit) {
             }
 
             else -> {
-                de.schaefer.sniffle.util.Preferences(context).onboardingDone = true
-                onComplete()
+                LaunchedEffect(Unit) {
+                    de.schaefer.sniffle.util.Preferences(context).onboardingDone = true
+                    onComplete()
+                }
             }
         }
     }

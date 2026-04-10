@@ -11,7 +11,9 @@ class App : Application() {
 
     val database: AppDatabase by lazy { AppDatabase.create(this) }
 
-    @Volatile var isScanning = false
+    @Volatile var isScanningStartedMs = 0L
+    val isScanning: Boolean get() = isScanningStartedMs > 0 &&
+        System.currentTimeMillis() - isScanningStartedMs < 60 * 60 * 1000
 
     override fun onCreate() {
         super.onCreate()

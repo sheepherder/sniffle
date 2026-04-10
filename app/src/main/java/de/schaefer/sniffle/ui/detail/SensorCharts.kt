@@ -25,9 +25,7 @@ import com.patrykandpatrick.vico.compose.cartesian.rememberVicoScrollState
 import com.patrykandpatrick.vico.compose.cartesian.rememberVicoZoomState
 import com.patrykandpatrick.vico.compose.common.data.ExtraStore
 import de.schaefer.sniffle.data.SightingEntity
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.jsonPrimitive
+import de.schaefer.sniffle.util.parseValues
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -214,12 +212,3 @@ private fun SensorLineChart(
     )
 }
 
-internal fun parseValues(json: String?): Map<String, String> {
-    if (json.isNullOrEmpty()) return emptyMap()
-    return try {
-        val obj = Json.parseToJsonElement(json) as? JsonObject ?: return emptyMap()
-        obj.mapValues { it.value.jsonPrimitive.content }
-    } catch (_: Exception) {
-        emptyMap()
-    }
-}

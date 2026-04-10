@@ -25,7 +25,7 @@ Java_de_schaefer_sniffle_ble_TheengsDecoder_nativeDecodeBLE(
     if (!json_input) return nullptr;
 
     std::string input = jstr(env, json_input);
-    StaticJsonDocument<1024> doc;
+    StaticJsonDocument<4096> doc;
     if (deserializeJson(doc, input)) {
         LOGE("deserializeJson failed");
         return nullptr;
@@ -40,23 +40,3 @@ Java_de_schaefer_sniffle_ble_TheengsDecoder_nativeDecodeBLE(
     return env->NewStringUTF(output.c_str());
 }
 
-extern "C" JNIEXPORT jstring JNICALL
-Java_de_schaefer_sniffle_ble_TheengsDecoder_nativeGetProperties(
-        JNIEnv *env, jobject, jstring model_id) {
-    if (!model_id) return nullptr;
-    std::string mid = jstr(env, model_id);
-    std::string props = decoder.getTheengProperties(mid.c_str());
-    if (props.empty()) return nullptr;
-    return env->NewStringUTF(props.c_str());
-}
-
-extern "C" JNIEXPORT jstring JNICALL
-Java_de_schaefer_sniffle_ble_TheengsDecoder_nativeGetAttribute(
-        JNIEnv *env, jobject, jstring model_id, jstring attribute) {
-    if (!model_id || !attribute) return nullptr;
-    std::string mid = jstr(env, model_id);
-    std::string attr = jstr(env, attribute);
-    std::string val = decoder.getTheengAttribute(mid.c_str(), attr.c_str());
-    if (val.empty()) return nullptr;
-    return env->NewStringUTF(val.c_str());
-}

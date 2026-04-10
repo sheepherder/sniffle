@@ -13,6 +13,9 @@ import de.schaefer.sniffle.data.Section
 
 object NotificationHelper {
 
+    private const val SUMMARY_NOTIFICATION_ID = 1
+    private const val SERVICE_NOTIFICATION_ID = 2
+
     private fun openAppIntent(context: Context, requestCode: Int, mac: String? = null): PendingIntent {
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
@@ -46,7 +49,7 @@ object NotificationHelper {
             Section.TRANSIENT -> error("unreachable")
         }
 
-        val notificationId = device.mac.hashCode() and Int.MAX_VALUE
+        val notificationId = (device.mac.hashCode() and 0x3FFFFFFF) + 1000
         val notification = NotificationCompat.Builder(context, App.CHANNEL_DEVICES)
             .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
             .setContentTitle(title)
@@ -70,11 +73,11 @@ object NotificationHelper {
             .setContentText(summary)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setAutoCancel(true)
-            .setContentIntent(openAppIntent(context, 998))
+            .setContentIntent(openAppIntent(context, SUMMARY_NOTIFICATION_ID))
             .build()
 
         try {
-            NotificationManagerCompat.from(context).notify(999, notification)
+            NotificationManagerCompat.from(context).notify(SUMMARY_NOTIFICATION_ID, notification)
         } catch (_: SecurityException) {}
     }
 
@@ -85,7 +88,7 @@ object NotificationHelper {
             .setContentText("Scanne nach Geräten…")
             .setPriority(NotificationCompat.PRIORITY_MIN)
             .setOngoing(true)
-            .setContentIntent(openAppIntent(context, 997))
+            .setContentIntent(openAppIntent(context, SERVICE_NOTIFICATION_ID))
             .build()
     }
 }

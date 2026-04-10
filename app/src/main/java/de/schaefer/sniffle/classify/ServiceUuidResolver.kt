@@ -33,7 +33,7 @@ object ServiceUuidResolver {
             FULL_UUIDS[full]?.let { if (seen.add(it)) hints.add(it) }
             // Try 16-bit short UUID from standard base
             val short = if (full.length == 36 && full.endsWith("-0000-1000-8000-00805f9b34fb")) {
-                full.substring(4, 8)
+                full.substring(4, 8) // 16-bit short UUID from 0000xxxx-...; upper 16 bits are always 0 for assigned UUIDs
             } else full
             SHORT_UUIDS[short]?.let { if (seen.add(it)) hints.add(it) }
         }

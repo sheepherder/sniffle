@@ -113,7 +113,7 @@ interface DeviceDao {
     """)
     fun observeAllGeoSightings(): Flow<List<SightingEntity>>
 
-    /** Latest sighting with GPS for each device (for map). */
+    /** Latest sighting with GPS for each promoted/sensor device (for map). */
     @Query("""
         SELECT s.* FROM sightings s
         INNER JOIN (
@@ -122,7 +122,8 @@ interface DeviceDao {
             WHERE latitude IS NOT NULL
             GROUP BY mac
         ) latest ON s.mac = latest.mac AND s.timestamp = latest.maxTs
-        WHERE s.latitude IS NOT NULL
+        INNER JOIN devices d ON s.mac = d.mac
+        WHERE s.latitude IS NOT NULL AND (d.hasSensorData = 1 OR d.promoted = 1)
     """)
     fun observeLatestGeoSightings(): Flow<List<SightingEntity>>
 }

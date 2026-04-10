@@ -13,7 +13,7 @@ import androidx.room.PrimaryKey
         childColumns = ["mac"],
         onDelete = ForeignKey.CASCADE
     )],
-    indices = [Index("mac"), Index("timestamp"), Index("mac", "timestamp")]
+    indices = [Index("timestamp"), Index("mac", "timestamp")]
 )
 data class SightingEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,

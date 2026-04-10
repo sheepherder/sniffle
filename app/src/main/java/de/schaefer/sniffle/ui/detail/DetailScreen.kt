@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
@@ -26,8 +25,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import de.schaefer.sniffle.data.Section
 import de.schaefer.sniffle.data.SightingEntity
 import de.schaefer.sniffle.data.Transport
+import de.schaefer.sniffle.ui.SniffleTopBar
 import de.schaefer.sniffle.ui.map.ClusterMap
 import de.schaefer.sniffle.util.formatTimestampLong
+import de.schaefer.sniffle.util.parseValues
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,24 +49,32 @@ fun DetailScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(device?.displayName ?: mac, maxLines = 1) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Zurück")
-                    }
-                },
+            SniffleTopBar(
+                title = device?.displayName ?: mac,
+                onBack = onBack,
                 actions = {
                     if (device?.section != Section.TRANSIENT) {
                         IconButton(onClick = { viewModel.delete() }) {
                             Icon(Icons.Default.Delete, "Löschen", tint = MaterialTheme.colorScheme.error)
                         }
                     }
-                }
+                },
             )
         }
     ) { padding ->
         val focusManager = LocalFocusManager.current
+        var showSaved by remember { mutableStateOf(false) }
+        var editCount by remember { mutableIntStateOf(0) }
+        var isFocused by remember { mutableStateOf(false) }
+
+        LaunchedEffect(editCount) {
+            if (editCount > 0) {
+                showSaved = true
+                delay(2000)
+                showSaved = false
+            }
+        }
+
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -96,18 +105,6 @@ fun DetailScreen(
 
             // Note field
             item(key = "note") {
-                var showSaved by remember { mutableStateOf(false) }
-                var editCount by remember { mutableIntStateOf(0) }
-                var isFocused by remember { mutableStateOf(false) }
-
-                LaunchedEffect(editCount) {
-                    if (editCount > 0) {
-                        showSaved = true
-                        delay(2000)
-                        showSaved = false
-                    }
-                }
-
                 val trailingIcon: (@Composable () -> Unit)? = remember(showSaved, isFocused) {
                     when {
                         showSaved -> {{ Icon(Icons.Default.Check, "Gespeichert", tint = MaterialTheme.colorScheme.primary) }}

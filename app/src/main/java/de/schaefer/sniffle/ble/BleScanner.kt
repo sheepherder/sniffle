@@ -12,6 +12,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 class BleScanner(context: Context) {
@@ -52,10 +53,14 @@ class BleScanner(context: Context) {
         // Android throttles BLE scans to opportunistic after 30 min.
         // Restart every 25 min to stay in LOW_LATENCY mode.
         launch {
-            while (true) {
+            while (isActive) {
                 delay(25 * 60 * 1000L)
-                leScanner.stopScan(callback)
-                leScanner.startScan(null, settings, callback)
+                try {
+                    leScanner.stopScan(callback)
+                    leScanner.startScan(null, settings, callback)
+                } catch (_: Exception) {
+                    break
+                }
             }
         }
 
