@@ -1,0 +1,85 @@
+# Third-Party Licenses
+
+This file lists all third-party dependencies used by Sniffle, their licenses,
+and copyright holders.
+
+## Native Libraries (statically linked via JNI)
+
+### TheengsDecoder
+- Version: 2.1.0
+- License: GPL-3.0-or-later
+- Source: https://github.com/theengs/decoder
+- Copyright: (c) TheengsDecoder contributors
+- Note: This is the reason Sniffle is licensed under GPL v3.
+
+### ArduinoJson
+- Version: 6.18.3
+- License: MIT
+- Source: https://github.com/bblanchon/ArduinoJson
+- Copyright: (c) 2014-2024 Benoit BLANCHON
+
+## Android / Jetpack Libraries (Apache 2.0)
+
+The following libraries are licensed under the Apache License, Version 2.0.
+You may obtain a copy at: https://www.apache.org/licenses/LICENSE-2.0
+
+- **Jetpack Compose BOM** (2026.03.01) — material3, ui, ui-tooling, icons-extended
+- **Activity Compose** (1.13.0)
+- **Navigation Compose** (2.9.7)
+- **Lifecycle** (2.10.0) — viewmodel-compose, runtime-compose
+- **Room** (2.8.4) — runtime, ktx, compiler
+- **WorkManager** (2.11.2) — work-runtime-ktx
+
+Copyright: (c) The Android Open Source Project
+
+## Kotlin / JetBrains (Apache 2.0)
+
+- **kotlinx-serialization-json** (1.11.0)
+- **Kotlin Standard Library** (2.3.20)
+
+Copyright: (c) 2010-2024 JetBrains s.r.o.
+
+## Mapping Libraries
+
+### osmdroid
+- Version: 6.1.20
+- License: Apache 2.0
+- Source: https://github.com/osmdroid/osmdroid
+- Copyright: (c) osmdroid contributors
+
+### osmbonuspack
+- Version: 6.9.0
+- License: LGPL-3.0
+- Source: https://github.com/MKergall/osmbonuspack
+- Copyright: (c) MKergall
+- Note: LGPL v3 is compatible with GPL v3 (LGPL v3 Section 2).
+
+## Charting Library
+
+### Vico
+- Version: 3.1.0
+- License: Apache 2.0
+- Source: https://github.com/patrykandpatrick/vico
+- Copyright: (c) Patryk Goworowski and Patrick Michalik
+
+## Google Play Services
+
+### play-services-location
+- Version: 21.3.0
+- License: Proprietary (Google Play Services Terms of Service)
+- Source: https://developers.google.com/android/guides/overview
+- Copyright: (c) Google LLC
+- Note: Used for GPS location. Considered a "System Library" under GPL v3
+  Section 1, as it is a standard component of the Android platform.
+
+## Asset Data
+
+### IEEE OUI Database (oui.csv)
+- Source: IEEE MA-L public registry (https://standards-oui.ieee.org/)
+- License: Public data (MAC address to vendor mappings)
+- Contains 38,962 entries
+
+### Google Fast Pair Model Database (fastpair_models.json)
+- Sources: Flipper Zero firmware (GPL-2.0-or-later), PentHertz bt_ids (MIT)
+- License: Factual data (model IDs to device names), compiled from open-source databases
+- Contains 475+ device models

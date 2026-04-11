@@ -19,3 +19,25 @@ out/
 __pycache__/
 *.pyc
 scan.py
+
+# Signing
+*.jks
+*.keystore
+
+# Logs and profiling
+*.log
+*.hprof
+
+# Environment
+.env
+
+# Native build artifacts
+*.so
+
+# Kotlin compiler caches
+.kotlin/
+
+# Claude Code project config (local)
+CLAUDE.md
+.claude/
+docs/
