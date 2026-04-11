@@ -49,16 +49,23 @@ fun ShowAllChip(showAll: Boolean, onClick: () -> Unit, modifier: Modifier = Modi
 }
 
 data class ClusterMapMarker(
-    val id: String,
     val lat: Double,
     val lon: Double,
     val title: String,
-    val snippet: String,
     val color: Int,
     val count: Int = 1,
     val deviceIds: List<Pair<String, String>> = emptyList(), // mac to displayName
     val isLatest: Boolean = false,
 )
+
+internal fun desaturate(color: Int): Int {
+    val r = (color shr 16) and 0xFF
+    val g = (color shr 8) and 0xFF
+    val b = color and 0xFF
+    val grey = (r * 0.3 + g * 0.59 + b * 0.11).toInt()
+    fun mix(c: Int) = (c * 0.4 + grey * 0.6).toInt().coerceIn(0, 255)
+    return (0xFF shl 24) or (mix(r) shl 16) or (mix(g) shl 8) or mix(b)
+}
 
 @Composable
 fun ClusterMap(
@@ -75,7 +82,9 @@ fun ClusterMap(
     var initialCenterDone by remember { mutableStateOf(false) }
     val density = context.resources.displayMetrics.density
     val clusterBitmap = remember { createClusterBitmap(context) }
+    val myLocationIcon = remember(density) { createMyLocationIcon(density) }
     val dotCache = remember { mutableMapOf<Int, android.graphics.drawable.Drawable>() }
+    val countDotCache = remember { mutableMapOf<Pair<Int, Int>, BitmapDrawable>() }
 
     Box(modifier = modifier) {
         AndroidView(
@@ -93,7 +102,7 @@ fun ClusterMap(
         // Update markers when data or mapView changes
         LaunchedEffect(markers, myLocation, mapView) {
             val map = mapView ?: return@LaunchedEffect
-            updateMapOverlays(map, markers, myLocation, density, clusterBitmap, dotCache, onDeviceTap)
+            updateMapOverlays(map, markers, myLocation, density, clusterBitmap, myLocationIcon, dotCache, countDotCache, onDeviceTap)
             if (!initialCenterDone) {
                 val allPoints = buildList {
                     myLocation?.let { add(it) }
@@ -147,7 +156,9 @@ private fun updateMapOverlays(
     myLocation: GeoPoint?,
     density: Float,
     clusterBitmap: Bitmap,
+    myLocationIcon: BitmapDrawable,
     dotCache: MutableMap<Int, android.graphics.drawable.Drawable>,
+    countDotCache: MutableMap<Pair<Int, Int>, BitmapDrawable>,
     onDeviceTap: ((String) -> Unit)?,
 ) {
     map.overlays.clear()
@@ -170,17 +181,17 @@ private fun updateMapOverlays(
         val sharedInfoWindow = if (onDeviceTap != null)
             DeviceListInfoWindow(map, markerDataMap, onDeviceTap) else null
 
-        for (m in markers.sortedBy { it.isLatest }) {
+        for (m in markers) {
             val marker = Marker(map)
             marker.position = GeoPoint(m.lat, m.lon)
             marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
             marker.icon = if (m.count > 1) {
-                BitmapDrawable(map.resources, createCountDot(m.color, m.count, density))
+                countDotCache.getOrPut(m.color to m.count) {
+                    BitmapDrawable(map.resources, createCountDot(m.color, m.count, density))
+                }
             } else {
                 dotCache.getOrPut(m.color) { createDotDrawable(m.color, 14, density) }
             }
-            marker.title = m.title
-            marker.snippet = m.snippet
 
             if (sharedInfoWindow != null) {
                 markerDataMap[marker] = m
@@ -205,7 +216,7 @@ private fun updateMapOverlays(
         myMarker.position = loc
         myMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
         myMarker.title = "Mein Standort"
-        myMarker.icon = createMyLocationIcon(density)
+        myMarker.icon = myLocationIcon
         myMarker.setInfoWindow(null)
         myMarker.setOnMarkerClickListener { _, _ -> true }
         map.overlays.add(myMarker)
