@@ -1,8 +1,10 @@
 package de.schaefer.sniffle.ui.detail
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -75,7 +77,14 @@ fun DetailScreen(
             }
         }
 
+        val listState = rememberLazyListState()
+        val hasGeo = state.sightings.any { it.latitude != null }
+        LaunchedEffect(hasGeo) {
+            if (hasGeo) listState.scrollToItem(0)
+        }
+
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
@@ -84,21 +93,28 @@ fun DetailScreen(
             // Mini map — tap opens fullscreen
             val geoSightings = state.sightings.filter { it.latitude != null && it.longitude != null }
             if (geoSightings.isNotEmpty()) {
-                item {
+                item(key = "map") {
                     val miniMarkers = remember(geoSightings, device?.section) {
-                        geoSightings.mapNotNull { it.toClusterMarker(device?.section) }
+                        groupSightingMarkers(geoSightings, device?.section)
                     }
                     Card(
-                        onClick = onOpenMap,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(200.dp)
                             .padding(16.dp)
                     ) {
-                        ClusterMap(
-                            markers = miniMarkers,
-                            modifier = Modifier.fillMaxSize(),
-                        )
+                        Box {
+                            ClusterMap(
+                                markers = miniMarkers,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                            // Transparent overlay captures taps (MapView swallows touch events)
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clickable { onOpenMap() }
+                            )
+                        }
                     }
                 }
             }

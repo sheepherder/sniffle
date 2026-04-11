@@ -38,7 +38,7 @@ class FullMapViewModel(application: Application) : AndroidViewModel(application)
 
     fun toggleShowAll() { _showAll.value = !_showAll.value }
 
-    private val devices = dao.observeAllDevices()
+    private val devices = dao.observePromotedDevices()
         .shareIn(viewModelScope, SharingStarted.WhileSubscribed(), replay = 1)
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
@@ -46,25 +46,54 @@ class FullMapViewModel(application: Application) : AndroidViewModel(application)
         val sightings = if (all) dao.observeAllGeoSightings() else dao.observeLatestGeoSightings()
         combine(devices, sightings) { devs, sights ->
             val deviceMap = devs.associateBy { it.mac }
-            sights.mapNotNull { s ->
-                val dev = deviceMap[s.mac] ?: return@mapNotNull null
-                if (!all && dev.section == Section.TRANSIENT) return@mapNotNull null
-                sightingToClusterMarker(s, dev)
+            // Find latest sighting location per device
+            val latestPerDevice = mutableMapOf<String, Pair<Double, Double>>()
+            for (s in sights) {
+                val lat = s.latitude ?: continue
+                val lon = s.longitude ?: continue
+                if (s.mac !in deviceMap) continue
+                // sights are ORDER BY timestamp DESC, so first occurrence per mac is latest
+                latestPerDevice.putIfAbsent(s.mac, lat to lon)
+            }
+            // Group sightings by exact GPS location
+            val grouped = mutableMapOf<Pair<Double, Double>, MutableList<Pair<SightingEntity, DeviceEntity>>>()
+            for (s in sights) {
+                val lat = s.latitude ?: continue
+                val lon = s.longitude ?: continue
+                val dev = deviceMap[s.mac] ?: continue
+                if (!all && dev.section == Section.TRANSIENT) continue
+                grouped.getOrPut(lat to lon) { mutableListOf() }.add(s to dev)
+            }
+            grouped.map { (loc, entries) ->
+                val uniqueDevices = entries.distinctBy { it.second.mac }.map { it.second }
+                val first = uniqueDevices.first()
+                // Location is "latest" if it's the latest sighting location for any device here
+                val isLatest = uniqueDevices.any { latestPerDevice[it.mac] == loc }
+                val baseColor = first.section.color.toArgb()
+                ClusterMapMarker(
+                    id = first.mac,
+                    lat = loc.first,
+                    lon = loc.second,
+                    title = if (uniqueDevices.size == 1) first.displayName
+                            else "${uniqueDevices.size} Geräte",
+                    snippet = "${first.section.label} — ${first.mac}",
+                    color = if (isLatest) baseColor else desaturate(baseColor),
+                    count = uniqueDevices.size,
+                    deviceIds = uniqueDevices.map { it.mac to it.displayName },
+                    isLatest = isLatest,
+                )
             }
         }
     }
 
-    private fun sightingToClusterMarker(s: SightingEntity, dev: DeviceEntity): ClusterMapMarker? {
-        val lat = s.latitude ?: return null
-        val lon = s.longitude ?: return null
-        return ClusterMapMarker(
-            id = s.mac,
-            lat = lat,
-            lon = lon,
-            title = dev.displayName,
-            snippet = "${dev.section.label} — ${s.mac}",
-            color = dev.section.color.toArgb(),
-        )
+    private fun desaturate(color: Int): Int {
+        val r = (color shr 16) and 0xFF
+        val g = (color shr 8) and 0xFF
+        val b = color and 0xFF
+        val grey = (r * 0.3 + g * 0.59 + b * 0.11).toInt()
+        // Blend 60% towards grey
+        fun mix(c: Int) = (c * 0.4 + grey * 0.6).toInt().coerceIn(0, 255)
+        return (0xFF shl 24) or (mix(r) shl 16) or (mix(g) shl 8) or mix(b)
     }
 
     @SuppressLint("MissingPermission")
@@ -109,7 +138,7 @@ fun MapScreen(
             myLocation = currentLocation,
             showLocationFab = true,
             onLocationRequest = { viewModel.refreshLocation() },
-            onInfoWindowTap = { marker -> onMarkerTap(marker.id) },
+            onDeviceTap = { mac -> onMarkerTap(mac) },
         )
 
         if (currentLocation == null && markers.isEmpty()) {
