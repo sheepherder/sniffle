@@ -47,7 +47,7 @@ The app targets **Android 13+** (minSdk 33).
 
 ```bash
 # Clone with submodules (TheengsDecoder C++ library)
-git clone --recurse-submodules https://github.com/schaefer/sniffle.git
+git clone --recurse-submodules https://github.com/sheepherder/sniffle.git
 cd sniffle
 
 # Or initialize submodules after cloning
