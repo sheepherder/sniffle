@@ -5,6 +5,12 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+val appVersion = "0.1.0"
+
+base {
+    archivesName = "sniffle-$appVersion"
+}
+
 kotlin {
     jvmToolchain(21)
     compilerOptions {
@@ -21,7 +27,7 @@ android {
         minSdk = 33
         targetSdk = 36
         versionCode = 1
-        versionName = "0.1.0"
+        versionName = appVersion
 
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
