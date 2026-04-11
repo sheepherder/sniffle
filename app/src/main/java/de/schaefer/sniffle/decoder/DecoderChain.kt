@@ -98,6 +98,7 @@ object TheengsDecoderAdapter : Decoder {
     }
 
     private fun buildTheengsJson(advert: ParsedAdvert): String = buildJsonObject {
+        put("id", advert.mac)
         if (!advert.name.isNullOrEmpty()) put("name", advert.name)
         if (advert.manufacturerData.isNotEmpty()) {
             val (cid, payload) = advert.manufacturerData.entries.first()
