@@ -87,23 +87,31 @@ internal fun SensorCharts(
         )
         Spacer(Modifier.height(8.dp))
 
-        val scrollState = rememberVicoScrollState(scrollEnabled = true)
-        val zoomState = rememberVicoZoomState(
-            initialZoom = Zoom.Content,
-            minZoom = Zoom.Content,
-            maxZoom = MAX_ZOOM,
-        )
-
-        for (key in data.keys) {
-            key(key) {
-                SensorLineChart(
-                    data = data,
-                    key = key,
-                    chartHeight = 150.dp,
-                    scrollState = scrollState,
-                    zoomState = zoomState,
-                    onFullscreen = if (onOpenChart != null) {{ onOpenChart(key) }} else null,
+        // Re-create scroll/zoom state when actual layout width changes
+        // (e.g. returning from landscape fullscreen chart)
+        BoxWithConstraints {
+            key(maxWidth) {
+                val scrollState = rememberVicoScrollState(scrollEnabled = true)
+                val zoomState = rememberVicoZoomState(
+                    initialZoom = Zoom.Content,
+                    minZoom = Zoom.Content,
+                    maxZoom = MAX_ZOOM,
                 )
+
+                Column {
+                    for (key in data.keys) {
+                        key(key) {
+                            SensorLineChart(
+                                data = data,
+                                key = key,
+                                chartHeight = 150.dp,
+                                scrollState = scrollState,
+                                zoomState = zoomState,
+                                onFullscreen = if (onOpenChart != null) {{ onOpenChart(key) }} else null,
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -148,25 +156,29 @@ private fun SensorLineChart(
         }
     }
     if (points.size < 2) return
+    val isFullscreen = chartHeight == null
+    val effectiveHeight = chartHeight ?: 0.dp
 
-    Row(
-        modifier = Modifier.padding(start = 16.dp, end = 4.dp, top = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            key,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.primary,
-        )
-        Spacer(Modifier.weight(1f))
-        if (onFullscreen != null) {
-            IconButton(onClick = onFullscreen, modifier = Modifier.size(32.dp)) {
-                Icon(
-                    Icons.Default.Fullscreen,
-                    contentDescription = "Vollbild",
-                    modifier = Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+    if (!isFullscreen) {
+        Row(
+            modifier = Modifier.padding(start = 16.dp, end = 4.dp, top = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                key,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Spacer(Modifier.weight(1f))
+            if (onFullscreen != null) {
+                IconButton(onClick = onFullscreen, modifier = Modifier.size(32.dp)) {
+                    Icon(
+                        Icons.Default.Fullscreen,
+                        contentDescription = "Vollbild",
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
     }
@@ -192,10 +204,10 @@ private fun SensorLineChart(
         }
     }
 
-    val chartModifier = if (chartHeight != null) {
-        Modifier.fillMaxWidth().height(chartHeight)
-    } else {
+    val chartModifier = if (isFullscreen) {
         Modifier.fillMaxSize()
+    } else {
+        Modifier.fillMaxWidth().height(effectiveHeight).padding(bottom = 4.dp)
     }
 
     CartesianChartHost(
@@ -208,7 +220,7 @@ private fun SensorLineChart(
         modelProducer = modelProducer,
         scrollState = scrollState,
         zoomState = zoomState,
-        modifier = chartModifier.padding(bottom = 4.dp),
+        modifier = chartModifier,
     )
 }
 

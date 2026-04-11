@@ -3,15 +3,18 @@ package de.schaefer.sniffle.ui.detail
 import android.app.Activity
 import android.content.pm.ActivityInfo
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import de.schaefer.sniffle.ui.SniffleTopBar
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SensorChartScreen(
     mac: String,
@@ -31,22 +34,29 @@ fun SensorChartScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            SniffleTopBar(title = key, onBack = onBack)
-        },
-    ) { padding ->
+    Box(modifier = Modifier.fillMaxSize()) {
         if (state.sensorSightings.isNotEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-            ) {
-                SensorChartFullscreen(
-                    sightings = state.sensorSightings,
-                    key = key,
-                )
-            }
+            SensorChartFullscreen(
+                sightings = state.sensorSightings,
+                key = key,
+            )
+        }
+
+        // Overlay back button
+        Surface(
+            onClick = onBack,
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(8.dp)
+                .size(40.dp),
+        ) {
+            Icon(
+                Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "Zurück",
+                modifier = Modifier.padding(8.dp),
+            )
         }
     }
 }

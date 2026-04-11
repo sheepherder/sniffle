@@ -14,7 +14,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
 data class ProcessedDevice(
@@ -46,8 +45,8 @@ class ScanProcessor(
     val sensorCount = AtomicInteger()
     val uniqueCount: Int get() = knownDevices.size
 
-    private val knownDevices = ConcurrentHashMap<String, DeviceEntity?>()
-    private val lastPersistedAt = ConcurrentHashMap<String, Long>()
+    private val knownDevices = mutableMapOf<String, DeviceEntity?>()
+    private val lastPersistedAt = mutableMapOf<String, Long>()
     private val loadMutex = Mutex()
 
     private fun mergeTransport(existing: DeviceEntity?, scanTransport: Transport): Transport =
@@ -214,16 +213,16 @@ class ScanProcessor(
     }
 
     private suspend fun getOrLoadDevice(mac: String): DeviceEntity? {
-        if (knownDevices.containsKey(mac)) return knownDevices[mac]
+        if (mac in knownDevices) return knownDevices[mac]
         return loadMutex.withLock {
-            if (knownDevices.containsKey(mac)) return knownDevices[mac]
+            if (mac in knownDevices) return knownDevices[mac]
             dao.getDevice(mac).also { knownDevices[mac] = it }
         }
     }
 
     private companion object {
-        const val PROMOTION_COUNT = 3
-        const val PROMOTION_INTERVAL_MS = 20L * 60 * 60 * 1000
+        const val PROMOTION_COUNT = 4
+        const val PROMOTION_INTERVAL_MS = 1L * 60 * 60 * 1000
     }
 
     private suspend fun checkPromotion(mac: String, nowMs: Long): Boolean {
