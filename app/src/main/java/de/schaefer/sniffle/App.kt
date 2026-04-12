@@ -4,16 +4,14 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import de.schaefer.sniffle.background.ScanWorker
+import de.schaefer.sniffle.ble.ScanCoordinator
 import de.schaefer.sniffle.data.AppDatabase
 import de.schaefer.sniffle.util.Preferences
 
 class App : Application() {
 
     val database: AppDatabase by lazy { AppDatabase.create(this) }
-
-    @Volatile var isScanningStartedMs = 0L
-    val isScanning: Boolean get() = isScanningStartedMs > 0 &&
-        System.currentTimeMillis() - isScanningStartedMs < 60 * 60 * 1000
+    val scanCoordinator: ScanCoordinator by lazy { ScanCoordinator(this) }
 
     override fun onCreate() {
         super.onCreate()

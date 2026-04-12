@@ -11,8 +11,6 @@ import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import de.schaefer.sniffle.App
-import de.schaefer.sniffle.ble.BleScanner
-import de.schaefer.sniffle.ble.ClassicScanner
 import de.schaefer.sniffle.ble.ProcessedDevice
 import de.schaefer.sniffle.ble.ScanProcessor
 import de.schaefer.sniffle.classify.FastPairLookup
@@ -41,6 +39,7 @@ data class DisplayDevice(
     val values: Map<String, Any> = emptyMap(),
     val pingCount: Int = 0,
     val lastPingMs: Long = 0,
+    val agoSec: Int = 0,
 )
 
 data class ScanState(
@@ -57,9 +56,9 @@ data class ScanState(
 class ScanViewModel(application: Application) : AndroidViewModel(application) {
 
     private val prefs = Preferences(application)
-    private val dao = (application as App).database.deviceDao()
-    private val bleScanner = BleScanner(application)
-    private val classicScanner = ClassicScanner(application)
+    private val app = application as App
+    private val dao = app.database.deviceDao()
+    private val coordinator = app.scanCoordinator
     private val processor = ScanProcessor(dao)
     private val locationClient = LocationServices.getFusedLocationProviderClient(application)
 
@@ -74,6 +73,7 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
     private var locationCallback: LocationCallback? = null
     private var bleJob: Job? = null
     private var classicJob: Job? = null
+    private var scanningActive = false
 
     private data class LiveInfo(
         val entity: DeviceEntity,
@@ -94,18 +94,20 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
                 buildState()
             }
         }
-        // Periodic stale cleanup independent of scan activity
+        // Tick every second to advance "seconds since last ping" counters and
+        // expire stale entries from the live view, even when no adverts arrive.
+        // Only needed in LIVE mode — ALL mode doesn't display per-device timers.
         viewModelScope.launch {
             while (true) {
-                delay(30_000)
-                if (liveData.isNotEmpty()) buildState()
+                delay(1_000)
+                if (liveData.isNotEmpty() && _state.value.mode == ListMode.LIVE) buildState()
             }
         }
     }
 
     @SuppressLint("MissingPermission")
     fun startScanning() {
-        (getApplication<Application>() as App).isScanningStartedMs = System.currentTimeMillis()
+        scanningActive = true
         startLocationUpdates()
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
@@ -115,13 +117,27 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun stopScanning() {
+        scanningActive = false
+        bleJob?.cancel(); bleJob = null
+        classicJob?.cancel(); classicJob = null
+        refreshJob?.cancel(); refreshJob = null
+        stopLocationUpdates()
+    }
+
+    /**
+     * Reconciles active scan coroutines with current preferences.
+     * Safe to call externally (e.g. from SettingsScreen on pref change):
+     * no-ops when ScanScreen is not currently in STARTED state.
+     */
     fun restartScans() {
+        if (!scanningActive) return
         val bleEnabled = prefs.bleScan
         val classicEnabled = prefs.classicScan
 
-        if (bleEnabled && bleScanner.isAvailable && bleJob == null) {
+        if (bleEnabled && coordinator.bleAvailable && bleJob == null) {
             bleJob = viewModelScope.launch {
-                bleScanner.scan().collect { advert ->
+                coordinator.bleResults.collect { advert ->
                     onScanResult(processor.processBle(advert))
                 }
             }
@@ -130,9 +146,9 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
             bleJob = null
         }
 
-        if (classicEnabled && classicScanner.isAvailable && classicJob == null) {
+        if (classicEnabled && coordinator.classicAvailable && classicJob == null) {
             classicJob = viewModelScope.launch {
-                classicScanner.scan().collect { device ->
+                coordinator.classicResults.collect { device ->
                     onScanResult(processor.processClassic(device))
                 }
             }
@@ -142,8 +158,8 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         _state.value = _state.value.copy(
-            bleActive = bleEnabled && bleScanner.isAvailable,
-            classicActive = classicEnabled && classicScanner.isAvailable,
+            bleActive = bleEnabled && coordinator.bleAvailable,
+            classicActive = classicEnabled && coordinator.classicAvailable,
         )
     }
 
@@ -195,6 +211,9 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
 
         liveData.entries.removeAll { it.value.lastPingMs < cutoff }
 
+        fun agoSec(lastPingMs: Long) =
+            if (lastPingMs > 0) ((now - lastPingMs) / 1000).toInt() else 0
+
         val source = buildList {
             for (entity in dbEntities.values) {
                 val live = liveData[entity.mac]
@@ -206,6 +225,7 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
                     values = live?.values ?: emptyMap(),
                     pingCount = live?.pingCount ?: 0,
                     lastPingMs = live?.lastPingMs ?: 0,
+                    agoSec = agoSec(live?.lastPingMs ?: 0),
                 ))
             }
             for ((mac, live) in liveData) {
@@ -217,6 +237,7 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
                     values = live.values,
                     pingCount = live.pingCount,
                     lastPingMs = live.lastPingMs,
+                    agoSec = agoSec(live.lastPingMs),
                 ))
             }
         }
@@ -265,9 +286,13 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
         } catch (_: Exception) {}
     }
 
-    override fun onCleared() {
-        (getApplication<Application>() as App).isScanningStartedMs = 0
+    private fun stopLocationUpdates() {
         locationCallback?.let { locationClient.removeLocationUpdates(it) }
+        locationCallback = null
+    }
+
+    override fun onCleared() {
+        stopScanning()
         super.onCleared()
     }
 }

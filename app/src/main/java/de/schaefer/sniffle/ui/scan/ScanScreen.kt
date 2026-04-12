@@ -8,9 +8,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import de.schaefer.sniffle.ui.deviceListContent
+import kotlinx.coroutines.awaitCancellation
 
 @Composable
 fun ScanScreen(
@@ -20,15 +24,24 @@ fun ScanScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     val activity = LocalActivity.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(activity) {
         activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         onDispose {
             activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
     }
-
-    LaunchedEffect(Unit) {
-        viewModel.startScanning()
+    // Scan while the screen is STARTED. repeatOnLifecycle re-runs cleanly
+    // across config changes and on every STARTED transition.
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            viewModel.startScanning()
+            try {
+                awaitCancellation()
+            } finally {
+                viewModel.stopScanning()
+            }
+        }
     }
 
     val status = buildList {
