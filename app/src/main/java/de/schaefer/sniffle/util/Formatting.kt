@@ -20,11 +20,26 @@ fun formatTimestamp(ms: Long): String =
 fun formatTimestampLong(ms: Long): String =
     if (ms == 0L) "?" else longFormat.get()!!.format(Date(ms))
 
-fun formatScanSummary(uniqueDevices: Int, sensors: Int, newPromoted: Int): String =
+fun formatLiveStatus(signals: Int, sighted: Int, newDevices: Int, newSensors: Int): String =
     buildList {
-        add("$uniqueDevices Geräte gefunden")
-        if (sensors > 0) add("$sensors davon Sensoren")
-        if (newPromoted > 0) add("$newPromoted neu eingestuft")
+        add("$signals Signale")
+        add("$sighted Geräte")
+        if (newDevices > 0) add("$newDevices erstmalig")
+        if (newSensors > 0) add(if (newSensors == 1) "1 neuer Sensor" else "$newSensors neue Sensoren")
+    }.joinToString(" • ")
+
+fun formatScanSummary(
+    signals: Int,
+    sighted: Int,
+    newDevices: Int,
+    newSensors: Int,
+    promotions: Int,
+): String =
+    buildList {
+        add("$signals Signale, $sighted Geräte")
+        if (newDevices > 0) add("$newDevices erstmalig gesehen")
+        if (newSensors > 0) add(if (newSensors == 1) "1 neuer Sensor" else "$newSensors neue Sensoren")
+        if (promotions > 0) add(if (promotions == 1) "1 jetzt regelmäßig" else "$promotions jetzt regelmäßig")
     }.joinToString(", ")
 
 fun parseValues(json: String?): Map<String, String> {

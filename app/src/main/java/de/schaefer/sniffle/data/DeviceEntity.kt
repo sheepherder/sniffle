@@ -31,7 +31,7 @@ data class DeviceEntity(
     val firstSeenMs: Long = 0L,
     val latestSeenMs: Long = 0L,
     val note: String? = null,
-    val notified: Boolean = false,
+    val showOnMap: Boolean = true,
 ) {
     val displayName: String get() {
         name?.let { return it }

@@ -41,9 +41,11 @@ class ScanProcessor(
     private val persistIntervalMs: Long = 30_000L,
     private val onNotify: (suspend (device: DeviceEntity, values: String?) -> Unit)? = null,
 ) {
-    val newDeviceCount = AtomicInteger()
-    val sensorCount = AtomicInteger()
-    val uniqueCount: Int get() = knownDevices.size
+    val signalCount = AtomicInteger()   // alle empfangenen BLE-Advertisements + BT-Discovery-Events
+    val sightedCount: Int get() = knownDevices.size   // unique MACs in diesem Scan
+    val newDeviceCount = AtomicInteger()   // erstmals in DB gesehen
+    val newSensorCount = AtomicInteger()   // erstmals als Sensor erkannt
+    val promotedCount = AtomicInteger()   // gerade promoted
 
     private val knownDevices = mutableMapOf<String, DeviceEntity?>()
     private val lastPersistedAt = mutableMapOf<String, Long>()
@@ -58,6 +60,7 @@ class ScanProcessor(
         }
 
     suspend fun processBle(advert: ParsedAdvert): ProcessedDevice {
+        signalCount.incrementAndGet()
         val existing = getOrLoadDevice(advert.mac)
         val decoded = DecoderChain.decode(advert)
         val ouiVendor = if (existing?.company != null) null else OuiLookup.lookup(advert.mac)
@@ -85,18 +88,19 @@ class ScanProcessor(
             firstSeenMs = existing?.firstSeenMs ?: nowMs,
             latestSeenMs = nowMs,
             note = existing?.note,
-            notified = existing?.notified ?: false,
+            showOnMap = existing?.showOnMap ?: true,
         )
 
-        if (existing == null && decoded?.hasSensorData == true) sensorCount.incrementAndGet()
-        if (existing == null && hasSensorData) newDeviceCount.incrementAndGet()
+        if (existing == null) newDeviceCount.incrementAndGet()
+        val isNewSensor = hasSensorData && existing?.hasSensorData != true
+        if (isNewSensor) newSensorCount.incrementAndGet()
 
         val valuesJson by lazy {
             decoded?.values?.takeIf { it.isNotEmpty() }?.let { vals ->
                 try { Json.encodeToString(vals.mapValues { it.value.toString() }) } catch (_: Exception) { null }
             }
         }
-        val (finalEntity, wasPromoted) = persistAndPromote(advert.mac, merged, existing == null, nowMs, { valuesJson }) {
+        val (finalEntity, wasPromoted) = persistAndPromote(advert.mac, merged, existing == null, isNewSensor, nowMs, { valuesJson }) {
             persistSighting(advert.mac, advert.rssi, valuesJson)
         }
 
@@ -112,6 +116,7 @@ class ScanProcessor(
     }
 
     suspend fun processClassic(device: ClassicDevice): ProcessedDevice {
+        signalCount.incrementAndGet()
         val existing = getOrLoadDevice(device.mac)
         val nowMs = System.currentTimeMillis()
         val company = if (existing?.company != null) existing.company else OuiLookup.lookup(device.mac)
@@ -135,10 +140,11 @@ class ScanProcessor(
             firstSeenMs = existing?.firstSeenMs ?: nowMs,
             latestSeenMs = nowMs,
             note = existing?.note,
-            notified = existing?.notified ?: false,
+            showOnMap = existing?.showOnMap ?: true,
         )
 
-        val (finalEntity, wasPromoted) = persistAndPromote(device.mac, merged, existing == null, nowMs, { null }) {
+        if (existing == null) newDeviceCount.incrementAndGet()
+        val (finalEntity, wasPromoted) = persistAndPromote(device.mac, merged, existing == null, false, nowMs, { null }) {
             persistSighting(device.mac, device.rssi, null)
         }
 
@@ -155,7 +161,7 @@ class ScanProcessor(
     }
 
     private suspend fun persistAndPromote(
-        mac: String, merged: DeviceEntity, isNew: Boolean, nowMs: Long,
+        mac: String, merged: DeviceEntity, isNew: Boolean, isNewSensor: Boolean, nowMs: Long,
         encodeValues: () -> String?,
         sighting: suspend () -> Unit,
     ): Pair<DeviceEntity, Boolean> {
@@ -165,19 +171,16 @@ class ScanProcessor(
             sighting()
             if (!merged.promoted && !merged.hasSensorData) {
                 wasPromoted = checkPromotion(mac, nowMs)
-                if (wasPromoted) newDeviceCount.incrementAndGet()
+                if (wasPromoted) promotedCount.incrementAndGet()
             }
         }
         val finalEntity = if (wasPromoted) merged.copy(promoted = true) else merged
 
-        // Notify for new sensors or newly promoted devices (once per device)
-        val shouldMark = wasPromoted || (merged.hasSensorData && !merged.notified)
-        if (shouldMark) {
-            dao.markNotified(mac)
+        if (wasPromoted || isNewSensor) {
             onNotify?.invoke(finalEntity, encodeValues())
         }
 
-        knownDevices[mac] = if (shouldMark) finalEntity.copy(notified = true) else finalEntity
+        knownDevices[mac] = finalEntity
         return finalEntity to wasPromoted
     }
 

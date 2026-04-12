@@ -13,7 +13,7 @@ interface DeviceDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertDevice(device: DeviceEntity): Long
 
-    /** Update scan-related fields only, leaving note and notified untouched. Uses COALESCE to never overwrite existing data with null. */
+    /** Update scan-related fields only, leaving note untouched. Uses COALESCE to never overwrite existing data with null. */
     @Query("""
         UPDATE devices SET
             name = COALESCE(:name, name),
@@ -88,11 +88,11 @@ interface DeviceDao {
     @Query("SELECT mac, note FROM devices WHERE note IS NOT NULL")
     fun observeNotes(): Flow<List<NoteEntry>>
 
-    @Query("UPDATE devices SET promoted = 1, notified = 0 WHERE mac = :mac")
+    @Query("UPDATE devices SET promoted = 1 WHERE mac = :mac")
     suspend fun setPromoted(mac: String)
 
-    @Query("UPDATE devices SET notified = 1 WHERE mac = :mac")
-    suspend fun markNotified(mac: String)
+    @Query("UPDATE devices SET showOnMap = :show WHERE mac = :mac")
+    suspend fun setShowOnMap(mac: String, show: Boolean)
 
     @Query("DELETE FROM devices WHERE mac = :mac")
     suspend fun deleteDevice(mac: String)
@@ -108,7 +108,8 @@ interface DeviceDao {
     @Query("""
         SELECT s.* FROM sightings s
         INNER JOIN devices d ON s.mac = d.mac
-        WHERE s.latitude IS NOT NULL AND (d.hasSensorData = 1 OR d.promoted = 1)
+        WHERE s.latitude IS NOT NULL AND d.showOnMap = 1
+        AND (d.hasSensorData = 1 OR d.promoted = 1)
         ORDER BY s.timestamp DESC
     """)
     fun observeAllGeoSightings(): Flow<List<SightingEntity>>
@@ -123,7 +124,8 @@ interface DeviceDao {
             GROUP BY mac
         ) latest ON s.mac = latest.mac AND s.timestamp = latest.maxTs
         INNER JOIN devices d ON s.mac = d.mac
-        WHERE s.latitude IS NOT NULL AND (d.hasSensorData = 1 OR d.promoted = 1)
+        WHERE s.latitude IS NOT NULL AND d.showOnMap = 1
+        AND (d.hasSensorData = 1 OR d.promoted = 1)
     """)
     fun observeLatestGeoSightings(): Flow<List<SightingEntity>>
 }

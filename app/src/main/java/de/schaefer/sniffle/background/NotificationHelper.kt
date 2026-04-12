@@ -13,8 +13,8 @@ import de.schaefer.sniffle.data.Section
 
 object NotificationHelper {
 
-    private const val SUMMARY_NOTIFICATION_ID = 1
-    private const val SERVICE_NOTIFICATION_ID = 2
+    const val SERVICE_NOTIFICATION_ID = 1
+    private const val SUMMARY_NOTIFICATION_ID = 2
 
     private fun openAppIntent(context: Context, requestCode: Int, mac: String? = null): PendingIntent {
         val intent = Intent(context, MainActivity::class.java).apply {
@@ -81,14 +81,20 @@ object NotificationHelper {
         } catch (_: SecurityException) {}
     }
 
-    fun serviceNotification(context: Context): android.app.Notification {
+    fun serviceNotification(context: Context, text: String = "Scanne nach Geräten…"): android.app.Notification {
         return NotificationCompat.Builder(context, App.CHANNEL_SERVICE)
             .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
             .setContentTitle("Sniffle")
-            .setContentText("Scanne nach Geräten…")
+            .setContentText(text)
             .setPriority(NotificationCompat.PRIORITY_MIN)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setOngoing(true)
+            .setSilent(true)
+            .setOnlyAlertOnce(true)
+            .setShowWhen(false)
             .setContentIntent(openAppIntent(context, SERVICE_NOTIFICATION_ID))
             .build()
     }
+
 }

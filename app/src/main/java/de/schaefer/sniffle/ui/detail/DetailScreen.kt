@@ -29,6 +29,7 @@ import de.schaefer.sniffle.data.SightingEntity
 import de.schaefer.sniffle.data.Transport
 import de.schaefer.sniffle.ui.SniffleTopBar
 import de.schaefer.sniffle.ui.map.ClusterMap
+import de.schaefer.sniffle.ui.map.groupSightingMarkers
 import de.schaefer.sniffle.util.formatTimestampLong
 import de.schaefer.sniffle.util.parseValues
 
@@ -152,6 +153,28 @@ fun DetailScreen(
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                         .onFocusChanged { isFocused = it.isFocused }
                 )
+            }
+
+            // Show on map toggle
+            if (device != null) {
+                item(key = "show-on-map") {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            "Auf Karte zeigen",
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Switch(
+                            checked = device.showOnMap,
+                            onCheckedChange = { viewModel.setShowOnMap(it) },
+                        )
+                    }
+                }
             }
 
             // Device info

@@ -48,24 +48,38 @@ fun ShowAllChip(showAll: Boolean, onClick: () -> Unit, modifier: Modifier = Modi
     )
 }
 
+private val MY_LOCATION_COLOR = 0xFF2196F3.toInt()
+
 data class ClusterMapMarker(
     val lat: Double,
     val lon: Double,
     val title: String,
     val color: Int,
     val count: Int = 1,
-    val deviceIds: List<Pair<String, String>> = emptyList(), // mac to displayName
+    val devices: List<DeviceRef> = emptyList(),
     val isLatest: Boolean = false,
 )
 
-internal fun desaturate(color: Int): Int {
-    val r = (color shr 16) and 0xFF
-    val g = (color shr 8) and 0xFF
-    val b = color and 0xFF
-    val grey = (r * 0.3 + g * 0.59 + b * 0.11).toInt()
-    fun mix(c: Int) = (c * 0.4 + grey * 0.6).toInt().coerceIn(0, 255)
-    return (0xFF shl 24) or (mix(r) shl 16) or (mix(g) shl 8) or mix(b)
+data class DeviceRef(val mac: String, val name: String, val color: Int)
+
+private inline fun transformRgb(color: Int, transform: (Int, Int, Int) -> Triple<Int, Int, Int>): Int {
+    val (r, g, b) = transform((color shr 16) and 0xFF, (color shr 8) and 0xFF, color and 0xFF)
+    return (0xFF shl 24) or
+        (r.coerceIn(0, 255) shl 16) or
+        (g.coerceIn(0, 255) shl 8) or
+        b.coerceIn(0, 255)
 }
+
+/** Darkens a color for readable text on a light background. */
+internal fun darkenForText(color: Int): Int =
+    transformRgb(color) { r, g, b -> Triple((r * 0.6).toInt(), (g * 0.6).toInt(), (b * 0.6).toInt()) }
+
+internal fun desaturate(color: Int): Int =
+    transformRgb(color) { r, g, b ->
+        val grey = (r * 0.3 + g * 0.59 + b * 0.11).toInt()
+        fun mix(c: Int) = (c * 0.4 + grey * 0.6).toInt()
+        Triple(mix(r), mix(g), mix(b))
+    }
 
 @Composable
 fun ClusterMap(
@@ -82,9 +96,10 @@ fun ClusterMap(
     var initialCenterDone by remember { mutableStateOf(false) }
     val density = context.resources.displayMetrics.density
     val clusterBitmap = remember { createClusterBitmap(context) }
-    val myLocationIcon = remember(density) { createMyLocationIcon(density) }
+    val myLocationIcon = remember(density) { createDotDrawable(MY_LOCATION_COLOR, 16, density) }
     val dotCache = remember { mutableMapOf<Int, android.graphics.drawable.Drawable>() }
     val countDotCache = remember { mutableMapOf<Pair<Int, Int>, BitmapDrawable>() }
+    val markerDataMap = remember { mutableMapOf<Marker, ClusterMapMarker>() }
 
     Box(modifier = modifier) {
         AndroidView(
@@ -102,7 +117,7 @@ fun ClusterMap(
         // Update markers when data or mapView changes
         LaunchedEffect(markers, myLocation, mapView) {
             val map = mapView ?: return@LaunchedEffect
-            updateMapOverlays(map, markers, myLocation, density, clusterBitmap, myLocationIcon, dotCache, countDotCache, onDeviceTap)
+            updateMapOverlays(map, markers, myLocation, density, clusterBitmap, myLocationIcon, dotCache, countDotCache, markerDataMap, onDeviceTap)
             if (!initialCenterDone) {
                 val allPoints = buildList {
                     myLocation?.let { add(it) }
@@ -156,12 +171,14 @@ private fun updateMapOverlays(
     myLocation: GeoPoint?,
     density: Float,
     clusterBitmap: Bitmap,
-    myLocationIcon: BitmapDrawable,
+    myLocationIcon: android.graphics.drawable.Drawable,
     dotCache: MutableMap<Int, android.graphics.drawable.Drawable>,
     countDotCache: MutableMap<Pair<Int, Int>, BitmapDrawable>,
+    markerDataMap: MutableMap<Marker, ClusterMapMarker>,
     onDeviceTap: ((String) -> Unit)?,
 ) {
     map.overlays.clear()
+    markerDataMap.clear()
 
     // Tap on empty map area closes any open InfoWindow
     map.overlays.add(MapEventsOverlay(object : MapEventsReceiver {
@@ -177,7 +194,6 @@ private fun updateMapOverlays(
         clusterer.setMaxClusteringZoomLevel(20)
         clusterer.setIcon(clusterBitmap)
 
-        val markerDataMap = mutableMapOf<Marker, ClusterMapMarker>()
         val sharedInfoWindow = if (onDeviceTap != null)
             DeviceListInfoWindow(map, markerDataMap, onDeviceTap) else null
 
@@ -267,33 +283,6 @@ private fun createClusterBitmap(context: android.content.Context): Bitmap {
     return bitmap
 }
 
-private fun createMyLocationIcon(density: Float): BitmapDrawable {
-    val outerR = (20 * density).toInt()
-    val innerR = (8 * density).toInt()
-    val size = outerR * 2
-    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-    val canvas = Canvas(bitmap)
-    val cx = size / 2f
-    val cy = size / 2f
-    // Blue halo
-    canvas.drawCircle(cx, cy, outerR.toFloat(), Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0x552196F3; style = Paint.Style.FILL
-    })
-    // Blue ring
-    canvas.drawCircle(cx, cy, (14 * density), Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0x882196F3.toInt(); style = Paint.Style.STROKE; strokeWidth = 2 * density
-    })
-    // White border
-    canvas.drawCircle(cx, cy, innerR + 2 * density, Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0xFFFFFFFF.toInt(); style = Paint.Style.FILL
-    })
-    // Blue center
-    canvas.drawCircle(cx, cy, innerR.toFloat(), Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0xFF2196F3.toInt(); style = Paint.Style.FILL
-    })
-    return BitmapDrawable(null as android.content.res.Resources?, bitmap)
-}
-
 private fun createCountDot(color: Int, count: Int, density: Float): Bitmap {
     val sizePx = (22 * density).toInt()
     val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
@@ -344,25 +333,29 @@ private class DeviceListInfoWindow(
         val pad = (12 * dp).toInt()
         val padSmall = (4 * dp).toInt()
 
-        // Title
-        content.addView(TextView(map.context).apply {
-            text = data.title
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
-            setTypeface(typeface, Typeface.BOLD)
-            setPadding(pad, pad, pad, padSmall)
-        })
-
-        // Device rows
-        for ((mac, name) in data.deviceIds) {
+        // Title (only shown for multi-device markers — single device = title same as row)
+        if (data.devices.size > 1) {
             content.addView(TextView(map.context).apply {
-                text = "$name\n$mac"
+                text = data.title
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+                setTypeface(typeface, Typeface.BOLD)
+                setPadding(pad, pad, pad, padSmall)
+            })
+        }
+
+        // Device rows, each tinted with its own section color
+        for (dev in data.devices) {
+            content.addView(TextView(map.context).apply {
+                text = "${dev.name}\n${dev.mac}"
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+                setTypeface(typeface, Typeface.BOLD)
+                setTextColor(darkenForText(dev.color))
                 setPadding(pad, padSmall, pad, padSmall)
                 val attr = TypedValue()
                 context.theme.resolveAttribute(android.R.attr.selectableItemBackground, attr, true)
                 setBackgroundResource(attr.resourceId)
                 setOnClickListener {
-                    onDeviceTap(mac)
+                    onDeviceTap(dev.mac)
                     close()
                 }
             })

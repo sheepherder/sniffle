@@ -1,6 +1,5 @@
 package de.schaefer.sniffle.ui.map
 
-import android.annotation.SuppressLint
 import android.app.Application
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,9 +16,6 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.google.android.gms.location.LocationServices
-import com.google.android.gms.location.Priority
-import com.google.android.gms.tasks.CancellationTokenSource
 import de.schaefer.sniffle.App
 import de.schaefer.sniffle.data.DeviceEntity
 import de.schaefer.sniffle.data.Section
@@ -30,9 +26,9 @@ import org.osmdroid.util.GeoPoint
 
 class FullMapViewModel(application: Application) : AndroidViewModel(application) {
     private val dao = (application as App).database.deviceDao()
-    private var locationCts = CancellationTokenSource()
+    private val locationTracker = MapLocationTracker(application)
 
-    val currentLocation = MutableStateFlow<GeoPoint?>(null)
+    val currentLocation: StateFlow<GeoPoint?> = locationTracker.currentLocation
     private val _showAll = MutableStateFlow(false)
     val showAll: StateFlow<Boolean> = _showAll
 
@@ -57,43 +53,35 @@ class FullMapViewModel(application: Application) : AndroidViewModel(application)
                 latestPerDevice.putIfAbsent(s.mac, lat to lon)
                 grouped.getOrPut(lat to lon) { mutableListOf() }.add(s to dev)
             }
-            grouped.map { (loc, entries) ->
+            // SENSOR (ordinal 0) should be drawn last → highest priority on top
+            val ranked = ArrayList<Triple<Int, Boolean, ClusterMapMarker>>(grouped.size)
+            for ((loc, entries) in grouped) {
                 val uniqueDevices = entries.distinctBy { it.second.mac }.map { it.second }
-                val first = uniqueDevices.first()
+                val priority = uniqueDevices.minBy { it.section.ordinal }
                 val isLatest = uniqueDevices.any { latestPerDevice[it.mac] == loc }
-                val baseColor = first.section.color.toArgb()
-                ClusterMapMarker(
+                val baseColor = priority.section.color.toArgb()
+                ranked.add(Triple(priority.section.ordinal, isLatest, ClusterMapMarker(
                     lat = loc.first,
                     lon = loc.second,
-                    title = if (uniqueDevices.size == 1) first.displayName
+                    title = if (uniqueDevices.size == 1) uniqueDevices.first().displayName
                             else "${uniqueDevices.size} Geräte",
                     color = if (isLatest) baseColor else desaturate(baseColor),
                     count = uniqueDevices.size,
-                    deviceIds = uniqueDevices.map { it.mac to it.displayName },
+                    devices = uniqueDevices.map {
+                        DeviceRef(it.mac, it.displayName, it.section.color.toArgb())
+                    },
                     isLatest = isLatest,
-                )
-            }.sortedBy { it.isLatest }
+                )))
+            }
+            ranked.sortWith(compareBy({ it.second }, { -it.first }))
+            ranked.map { it.third }
         }
     }
 
-    @SuppressLint("MissingPermission")
-    fun refreshLocation() {
-        try {
-            val client = LocationServices.getFusedLocationProviderClient(getApplication<Application>())
-            client.lastLocation.addOnSuccessListener { loc ->
-                loc?.let { currentLocation.value = GeoPoint(it.latitude, it.longitude) }
-            }
-            locationCts.cancel()
-            locationCts = CancellationTokenSource()
-            client.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, locationCts.token)
-                .addOnSuccessListener { loc ->
-                    loc?.let { currentLocation.value = GeoPoint(it.latitude, it.longitude) }
-                }
-        } catch (_: Exception) { }
-    }
+    fun refreshLocation() = locationTracker.refresh()
 
     override fun onCleared() {
-        locationCts.cancel()
+        locationTracker.cancel()
         super.onCleared()
     }
 }

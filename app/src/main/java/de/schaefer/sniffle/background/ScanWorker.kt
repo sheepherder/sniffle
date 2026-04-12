@@ -13,6 +13,7 @@ import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.location.Location
 import android.util.Log
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.getSystemService
 import androidx.work.*
 import com.google.android.gms.location.LocationServices
@@ -27,6 +28,7 @@ import de.schaefer.sniffle.ble.ScanProcessor
 import de.schaefer.sniffle.classify.FastPairLookup
 import de.schaefer.sniffle.classify.OuiLookup
 import de.schaefer.sniffle.util.Preferences
+import de.schaefer.sniffle.util.formatLiveStatus
 import de.schaefer.sniffle.util.formatScanSummary
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
@@ -54,7 +56,7 @@ class ScanWorker(
 
         // Show foreground notification
         setForeground(ForegroundInfo(
-            1,
+            NotificationHelper.SERVICE_NOTIFICATION_ID,
             NotificationHelper.serviceNotification(applicationContext),
             ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION,
         ))
@@ -132,10 +134,32 @@ class ScanWorker(
             }
         }
 
+        // Live-update the FGS notification with current counts (skip when unchanged)
+        val nm = NotificationManagerCompat.from(applicationContext)
+        val liveUpdateJob = scope.launch {
+            var lastText = ""
+            while (true) {
+                delay(500)
+                val text = formatLiveStatus(
+                    processor.signalCount.get(), processor.sightedCount,
+                    processor.newDeviceCount.get(), processor.newSensorCount.get(),
+                )
+                if (text == lastText) continue
+                lastText = text
+                try {
+                    nm.notify(
+                        NotificationHelper.SERVICE_NOTIFICATION_ID,
+                        NotificationHelper.serviceNotification(applicationContext, text),
+                    )
+                } catch (_: SecurityException) {}
+            }
+        }
+
         try {
             // Wait for scan duration
             delay(durationMs)
         } finally {
+            liveUpdateJob.cancel()
             // Stop scans (also runs on cancellation)
             if (bleCallback != null) {
                 try { btManager?.adapter?.bluetoothLeScanner?.stopScan(bleCallback) } catch (_: Exception) {}
@@ -160,7 +184,11 @@ class ScanWorker(
         dao.deleteStale()
 
         val summary = formatScanSummary(
-            processor.uniqueCount, processor.sensorCount.get(), processor.newDeviceCount.get(),
+            signals = processor.signalCount.get(),
+            sighted = processor.sightedCount,
+            newDevices = processor.newDeviceCount.get(),
+            newSensors = processor.newSensorCount.get(),
+            promotions = processor.promotedCount.get(),
         )
         Log.i("ScanWorker", "Scan done: $summary")
         prefs.lastBgScanMs = System.currentTimeMillis()
